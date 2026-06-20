@@ -167,3 +167,336 @@ Unresolved Issues / Risks (priority for next phase):
 - Some dashboard pages still mix API data with static fallback data (static-data.ts); the OverviewPage KPIs still use static-data. Could be migrated to live API data now that the auth bypass is stable.
 - Sidebar lower-section navigation via agent-browser "find text" was previously intermittently blocked — now resolved (modals removed), but worth confirming all sections are reachable in the next QA pass.
 - Next feature candidates: keyboard shortcut help overlay (?), recent-activity global feed, order quick-create from command palette, theme/density toggle.
+
+---
+Task ID: RESEARCH-1
+Agent: general-purpose (interview analysis)
+Task: Read all interview files in /home/z/my-project/upload/interviews/ (~74 numbered subdirectories, ~294 markdown files) and produce a structured analysis focused ONLY on AI-related opportunities for the AddManuChain manufacturing supply-chain platform. Deliverable: a 5-section report (Top AI Opportunities, Role-Specific Needs, Recurring Pain Points AI Could Solve, Direct Quotes, Recommended Roadmap) appended to worklog.md and returned in the final message.
+
+Work Log:
+- Read /home/z/my-project/worklog.md to understand current state of AddManuChain (Next.js 16 + SQLite + z-ai-web-dev-sdk; basic AI assistant already implemented in src/lib/ai.ts with askAI/askAIJson helpers; 7 routes already converted from Ollama).
+- Listed all 74 numbered interview subdirectories under /home/z/my-project/upload/interviews/.
+- Ran two large ripgrep passes for AI-relevant terms (predict|forecast|automat|assistant|chatbot|generat|recommend|anomaly|detect|optimi|AI|ML|...) and pain-point terms (manual|time-consuming|bottleneck|slow|frustrat|wish|hard to|difficult|tedious). Both returned 168–239 hit files. Followed up with targeted rg searches on: predictive maintenance / anomaly detection / sensor data / in-process monitoring; reverse engineer / scan-to / digital twin / AM candidate; knowledge capture / workforce memory / smart manual; ROI calculator / business case / production criticality / AM suitability; automatic print / auto-trigger / reorder point / demand forecast.
+- Prioritized "Key_Insights" / "Insights" / "Analysis" / "Executive_Summary" files over full transcripts for the 74 interviews. Strategically sampled the highest-value insights files to cover all role types: End Users / Clients (David Bursey Cenovus #75, Adam Chubbs Frobisher #30, Mike Lenart Greenstone #76, JP Hudon Glencore #69, Jordan Cumming #10, Dean Dalpe Enbridge #64, Craig Dicken ExxonMobil #60); OEM Partners (Sebastian Piegert Siemens Energy #80, Bachar Reaction Dynamics #84, Jim Granger MAN Energy #23, GKN Aerospace #43, Arad Gharagozli Galaxia #21, Aker Solutions #52, Paleagus CEO #83); Certification Authorities (Adam Saxty LR #45, Dave Whitehouse LR #46, Trevor Butler LR #42, Brian May DRDC #71, Cameron Munro DRDC #81); Print Centers / Facilities (Sean Morgan Atlantic XL #5, Cassidy Silbernagel Exergy #72, Shawn Sooley Shield #32, Tyler Beatty ExxonMobil #33, Assembly Studio #20); Labs / Testing (Dr. Ali Nasiri Dalhousie #11, Mohsen Mohammadi #41, Bob Hedrick CAMufacturing #58, Mike Paulin C-CORE #31, Mark Kirby Tronosjet #9); Ecosystem / Maritime (Andre Simha MSC #55, Andrew Black GTICS #79, Darren Wood Proax #29, David Bursey Cenovus #75, Michael Kobalch Kinross #82, Donna Hatt Bridgewater #78, Polyunity #53, Keith Healey #27).
+- Read 3–4 full transcripts for the most AI-rich interviews (Sebastian Piegert #80, Cameron Munro #81, Michael Kobalch #82, Bachar Reaction Dynamics #84, David Bursey #75, Cassidy Silbernagel #72) to verify AI claims.
+- Grouped all findings into 15 AI-opportunity themes; cross-tabulated against role types and feasibility; produced ranked list, role-specific matrix, pain-point list, quote library, and phased roadmap.
+
+Stage Summary:
+
+# AI Opportunities Analysis — AddManuChain Interview Discovery (74 interviews)
+
+> **Method note.** This report synthesizes verbatim interviewee statements from 74 numbered interview folders under `/home/z/my-project/upload/interviews/`. Interview numbers cited below correspond to those folders. Where a paraphrase is given, it is grounded in the cited interview's Key Insights / Analysis file; where a quote is given, it is reproduced verbatim from that file. Where evidence is thin or absent for a specific claim, this is stated explicitly.
+
+---
+
+## 1. Top AI Opportunities (ranked by frequency of mention + impact)
+
+### 1.1 AM-Candidate Identification Engine ("Is this part printable + worth printing?")
+- **Interview evidence:**
+  - Interview 81 (Cameron Munro, DRDC / navy) explicitly proposed applying AI to inventory: *"Apply AI to inventory management so there can be notifications or forewarning that 'this set of parts is going to be problematic in the future'… You can handle that data, apply an algorithm, and say, 'Here are some parts that are going to be problematic, and these parts are also suitable for AM.'"* Reaction: *"That's a fantastic idea… That would be so useful."*
+  - Interview 60 (Craig Dicken, ExxonMobil): *"Just because an item can be manufactured digitally or through additive manufacturing doesn't mean that you actually should adopt additive manufacturing."* Cited as a critical unmet need.
+  - Interview 72 (Cassidy Silbernagel, Exergy Solutions): *"Once they get the new hammer, everything starts looking like a nail… You have to be really good at what is the right 5%."* Specifically recommended a "part evaluation logic to screen out commodity items."
+  - Interview 9 (Mark Kirby, Tronosjet): H50 — "Low-Risk Part Categorization System" strongly validated; *"Tools that show people what are the right parts to print"* is exactly what Canada Makes is building. Evolved hypothesis H54: cross-budget business case calculator.
+  - Interview 52 (Heather Davis, Aker Solutions): Provided the exact AM-assessment checklist (certification level, material printability, nearby qualified facilities, safety criticality, cost-benefit, lead-time comparison) — *"Just because it can be printed doesn't mean it should be."* Recommended this checklist be the AI model.
+  - Interview 53 (Polyunity Steven): Target AI state includes *"AM suitability scoring (which parts in your inventory are printable?)"*.
+  - Interview 84 (Bachar Reaction Dynamics), 76 (Mike Lenart, Greenstone), 13 (Lee Vessey, Thales navy) all confirm the manual identification problem.
+- **Proposed feature:** A "Part Suitability & ROI" module: ingest an operator's BOM / CMMS / ERP inventory, score every line on (a) AM-geometry feasibility, (b) lead-time pain, (c) criticality, (d) certification pathway, (e) annual demand, (f) OEM IP status; output a ranked shortlist of the top ~5% of parts to digitize and pre-certify. Reuse Aker's checklist verbatim as the scoring schema.
+- **Feasibility: Medium.** The scoring logic is well-defined by interviewees; the hard part is data ingestion (BOM/CMMS heterogeneity) and material/geometry classification — solvable with a CAD metadata extraction + a rules engine first, ML later.
+
+### 1.2 Smart Replenishment & Auto-Triggered Printing ("print when inventory drops")
+- **Interview evidence:**
+  - Interview 75 (David Bursey, Cenovus offshore corrosion engineer) gave the most concrete articulation: *"If we carry a small stock offshore, and we keep what's called a 'safety stock.' So when the amount of inventory drops to a certain point, there's an automatic reorder to refill it. But instead of refilling in the logistics of shipping stuff onshore, if we could print components offshore in a way of just being an automatic process, and when inventory drops, the printer kicks in and produces more... that would be fantastic."*
+  - Interview 60 (Craig Dicken, ExxonMobil): confirmed MRO supply chains are *"last-minute"*, *"manual intervention is massive"*, and lead-time data in systems is wrong.
+  - Interview 10 (Jordan Cumming, 2nd meeting): flagged *"dynamic demand prediction + lead-time-aware auto-replenishment + vendor ordering automation"* as the highest immediate-value AI use case.
+  - Interview 69 (JP Hudon, Glencore smelting): *"Right parts availability: Ensuring that work-order planning system identifies required parts in advance, pre-positions them at job location, and has fallback systems if primary parts are unavailable."*
+  - Interview 29 (Darren Wood, Proax distributor): *"What should we keep in stock and why should we keep it in stock?"* — distributors also need this.
+- **Proposed feature:** A "Safety-Stock-to-Print" workflow: connect to a customer's inventory/CMMS, monitor min/max thresholds, and when stock crosses a threshold for a pre-certified printable part, automatically open a print job at the nearest qualified facility (with human approval gate). Pair with a dynamic reorder-point algorithm that adjusts thresholds based on actual lead-time distributions and seasonal demand.
+- **Feasibility: Medium–Hard.** Logic is straightforward; the work is in ERP/CMMS connectors (SAP EWM, Maximo, etc.) and threshold tuning per part.
+
+### 1.3 Cross-Facility / Cross-Organizational Inventory Visibility & Duplicate Detection
+- **Interview evidence:**
+  - Interview 60 (Craig Dicken, ExxonMobil): *"We could stock the same part right? Multiple regions across the world and not actually know what other organizations have it."* Frames this as a billion-dollar inefficiency.
+  - Interview 64 (Dean Dalpe, Enbridge): *"In a company like Enbridge, why do I need to carry the same product that liquids or GTM or power has to carry? You know, if they know that we only go through 2 a year, maybe we should only carry 4 across the company and it sits in a central warehouse that is shifted 24 hours."* Also: *"When products are retired, you should be able to write them off at the appropriate time instead of having huge warehouses full of products that have never moved in the last 20 years."*
+  - Interview 31 (Mike Paulin, C-CORE): cited the Gulf of Mexico spare-parts cooperatives (physical pool-and-replace model). Suggested AddManuChain could be the *"digital cooperative."*
+  - Interview 55 (Andre Simha, MSC): central procurement but improvised ship-to-ship distribution; IoT deployed but under-utilized; *"people still use Excel"*.
+- **Proposed feature:** A "Network Inventory Graph" — federated view across a customer's regional warehouses AND across consortium members (with permission boundaries), with AI flagging (a) duplicate SKUs across regions, (b) slow-moving stock to retire, (c) cross-region borrow/lend opportunities before triggering a new purchase or print.
+- **Feasibility: Easy–Medium.** Pure software/data problem; main obstacle is the data-sharing governance (see opportunity 1.11).
+
+### 1.4 In-Process Monitoring + ML for AM Certification (sensor-data-based pass/fail prediction)
+- **Interview evidence:**
+  - Interview 81 (Cameron Munro, DRDC): *"Right now, AM systems collect sensor data, but people don't really do anything with it. It would be useful to go back, look at sensor data, compare it to part performance afterwards, and figure out what it actually meant."* Proposed ML model: *"If sensor signature = X, part will pass/fail quality test."*
+  - Interview 45 (Adam Saxty, Lloyd's Register Lead AM Technologist): Disclosed LR's R&D direction explicitly: *"How can we move to monitoring the manufacturing process… AM is particularly suited to that because you've got the process monitoring techniques that you can do while you're printing, there by layer."* Called in-process monitoring LR's *"future end goal"* and the solution to the **machine-variability problem** (currently unsolved barrier to on-site/on-vessel printing).
+  - Interview 11 (Dr. Ali Nasiri, Dalhousie): research focus on in-process defect detection; named as the academic partner Adam Saxty should be connected to.
+  - Interview 41 (Mohsen Mohammadi): *"AI potential: Predictive defect detection, process optimization, design generation."*
+  - Interview 58 (Bob Hedrick, CAMufacturing): PhD-level thermal modeling + AI-accelerated simulation already a competitive moat.
+- **Proposed feature:** A "Build Confidence Score" — ingest per-layer sensor telemetry (laser power, melt-pool temp, layer images) from printer-native systems, train ML models on historical build-vs-test-coupon outcomes, output a per-build pass/fail probability + which layers showed anomalies. Feed this into the certification documentation so cert authorities can reduce destructive testing on high-confidence builds.
+- **Feasibility: Hard.** Requires sensor data access (printer-vendor cooperation), labeled training data (need 100s of builds with test-coupon outcomes), and a research partnership (Dalhousie + LR + DRDC). Multi-year, but the moat is enormous.
+
+### 1.5 Certification-as-a-Service / Compliance Documentation AI
+- **Interview evidence:**
+  - Interview 45 (Adam Saxty, LR): walked through the full 7-step AM certification pathway (design review → material spec → facility qualification → feedstock qualification → part qualification → production certification → installation approval). Facility + part qualification are ONE-TIME; per-order is lightweight (test coupon).
+  - Interview 42 (Trevor Butler, LR): *"You don't have to go through all that qualification process every single time. That should be a prerequisite to being included in a digital inventory."*
+  - Interview 32 (Shawn Sooley, Shield Group): *"They're never going to do that [pursue AM certification themselves]. I will do that. You will do it. Someone — one of us, someone like us will do that."* The barrier is *"fear of extra work"* — not actual regulatory impossibility. Recommended positioning: *"We've already handled compliance."*
+  - Interview 83 (Paleagus CEO): team's competitive moat is *"Assurance at Every Stage"* — ISO 9001 + ABS/DNV/Lloyd's guidelines — and certification knowledge that lets them guide OEMs through qualification workflows.
+  - Interview 53 (Polyunity): the compliance pipeline (idea → feasibility → prototype → certification → finance/procurement → digital inventory) IS the product; once a part is approved by one organization, all future organizations reuse the approval ("approval cascade").
+  - Interview 75 (David Bursey): confirmed DNV/Lloyd's certification is *"achievable but time-consuming"* — vendor must pay for verification-society testing.
+- **Proposed feature:** A "Certification Pathway Builder" — pick a part, pick a target industry (Marine LR Rules vs. Offshore application standards vs. Aerospace PMA), and the AI auto-generates the documentation checklist, pre-fills templates, tracks evidence (material certs, test coupons, process specs), and produces a submittable binder. Reuse the approval: when the same part is ordered by a second customer, surface the prior approval and shrink the workflow to "print + coupon test + verify."
+- **Feasibility: Medium.** Templates and workflow logic are well-understood from Adam Saxty's 7-step framework; the AI is doing document assembly + evidence linking, not judgment.
+
+### 1.6 Cross-Budget ROI / Business-Case Calculator
+- **Interview evidence:**
+  - Interview 9 (Mark Kirby): *"The biggest barrier is the business case… there isn't a strong enough business case typically where additive is out and out the clear winner."* Medical-device example: 3x device cost vs. 2-day hospital savings — budgets don't align. Proposed H54: a cross-budget business case calculator.
+  - Interview 47 (Ali Mahmoudi): *"They are looking for at least 10% to 15% of ROI"* — hard quantitative gate. Cross-validated by OMV Austria (15%) and Jean-Michel Fortin Agnico Eagle (Interview 17).
+  - Interview 75 (David Bursey): *"Cost of one day offshore downtime: ~$100,000+. Cost of on-site printing: ~$500–2,000 per part. ROI on printing capability: Saves money on first emergency."*
+  - Interview 44 (Douglas Garcia, Equinor): the most powerful framing — *"My cost is 1 to 2% of the total capex. If you don't have it, you can lose 98% of your production."*
+  - Interview 72 (Cassidy Silbernagel): recommended an ROI calculator for AM vs. traditional manufacturing as a high-priority feature.
+- **Proposed feature:** A "Decision Calculator" that, for any candidate part, computes: (a) upfront AM cost (DRL-3 certification + per-part print cost), (b) savings (downtime avoided × $/day, hot-shot air-freight avoided, working-capital freed), (c) cross-budget attribution (which department pays, which saves), and (d) recommended action (stock / print-on-demand / ignore). Output a one-page board-ready business case. Mark Kirby explicitly stated this would unblock adoption.
+- **Feasibility: Easy–Medium.** Spreadsheet-grade math + good UI; can ship in Phase 1.
+
+### 1.7 Knowledge Capture & Smart Manuals for an Aging Workforce
+- **Interview evidence:**
+  - Interview 10 (Jordan Cumming, 2nd meeting): *"Highest Immediate Value Signal: Knowledge Capture / Workforce Memory… critical assembly procedures were never documented because they existed only in the heads of experienced technicians who had retired or passed away."* Endorsed as one of the highest-impact value propositions for near-term adoption.
+  - Interview 23 (Jim Granger, MAN Energy): *"The real power [of AI] is that lack of technical expertise. There is a real lack. It's not like it was 30 years ago where there was always one person who knew everything. Those guys are gone."* MAN is building proprietary AI for predictive maintenance + troubleshooting because of this.
+  - Interview 64 (Dean Dalpe, Enbridge): *"We use ChatGPT for all our manuals. Google can't do this. A guy in the field asks, 'How do I do fusion on a 2-inch plastic pipe in Toronto?' It comes back: 'Based on what you're saying, here's the manual section.'"* Frames AI as *"data interpretation, not decision-making."*
+  - Interview 69 (JP Hudon, Glencore): *"Even robust documentation systems do not fully replace expert judgment… The problem is especially acute in smelting operations, where equipment is integrated into complex thermal/chemical processes."* Sees opportunity in *"knowledge capture/decision-support tooling."*
+  - Interview 58 (Bob Hedrick): *"The body of knowledge you need to programme these systems — you need a lot of experience. The institutional knowledge isn't there for this technology."* Platform must *"encode institutional knowledge"* — design guidelines, qualification standards, failure analyses.
+  - Interview 84 (Bachar Reaction Dynamics): Phase 4 of AI adoption explicitly named *"cross-project learning (knowledge management across builds)."*
+- **Proposed feature:** Two pieces:
+  (a) **Smart Manuals**: RAG-based chat over the operator's own maintenance manuals, SOPs, and historical work-order notes — grounded answers with citations (Dean Dalpe's exact use case).
+  (b) **Expert Knowledge Capture**: structured "post-job debrief" capture (free-text + tagged failure mode + photos) that builds a searchable institutional memory; surface relevant prior cases when a similar work order is opened.
+- **Feasibility: Medium.** RAG over PDFs is well-trodden (the platform already uses z-ai-web-dev-sdk). The harder part is the structured-capture UX that technicians will actually use.
+
+### 1.8 Closed-Loop Predictive-Maintenance → Digital-Inventory → Print Trigger
+- **Interview evidence:**
+  - Interview 5 (Sean Morgan, Atlantic XL): *"Pairing [predictive maintenance] with digital inventory to predict the future based on that."* Explicitly the AddManuChain value chain: *"Sensors → AI Predicts Failure → Digital Inventory → AM Production → Delivery Before Downtime."*
+  - Interview 30 (Adam Chubbs, Frobisher / Engineered Intelligence): partner company is building asset-intelligence AI; *"predict failures, predict overloads… tie that to historical weather patterns."* Opportunity: *"AI predicts failures → digital inventory provides parts — closed-loop system."*
+  - Interview 79 (Andrew Black, GTICS / Oceana): Oceana lacks onboard sensors today; predictive capability is *"preventive rather than predictive"*. *"Your ability to forecast accurately… is limited right here. It'll be a pretty crude tool."* Strategic implication: don't try to build PdM yourself, integrate with it.
+  - Interview 25 (Kwadwo Ampofo, Deloitte): *"Don't try to do predictive maintenance AND digital inventory"* — let others build PdM; AddManuChain should *react* to PdM signals. *"Predictive maintenance integration" is too complex.*
+  - Interview 44 (Douglas Garcia, Equinor): Equinor already deploying AI-driven scanning + unmanned helicopter parts logistics between platforms.
+  - Interview 32 (Shawn Sooley): cautioned — predictive maintenance *"has been around for years"* (Tan Delta machines); don't lead with PdM as a differentiator. *"I wouldn't try to sell AI."*
+- **Proposed feature:** NOT a PdM engine (Ampofo + Sooley warn against this). Instead, an "Integration Bus" that subscribes to existing PdM / condition-monitoring signals (vibration, oil analysis, thermography — JP Hudon's existing stack), interprets a predicted-failure alert, checks whether the predicted-failing part is in the digital inventory, and either triggers a print or surfaces a stock-out warning. Position as the *fulfillment arm* of PdM, not the prediction engine.
+- **Feasibility: Medium–Hard.** Easy if the customer already has PdM signals; hard if they don't (Adam Chubbs noted many utilities' data is siloed in spreadsheets and handwritten notes).
+
+### 1.9 Tier-2/3 Supplier Visibility ("Follow the Money")
+- **Interview evidence:**
+  - Interview 9 (Mark Kirby): *"If you could follow the money, you will actually expose the real supply chains… companies typically know first tier suppliers, but they don't know second tier, third tier… that's where the wheels fall off."* Proposed H55: Supply Chain Tier Visibility Tool.
+  - Interview 55 (Andre Simha, MSC): confirmed multi-party shipping ecosystem data quality is poor; *"Quality of data in our industry is very poor."* AI/ML is not the bottleneck — data quality is.
+  - Interview 60 (Craig Dicken, ExxonMobil): manual PO transmission between SAP, TM, EWM and external vendors; *"creating supply chain disruption if we don't have a mechanism to track those."*
+  - Interview 10 (Jordan Cumming): flagged geopolitical/tariff supply-chain fragility and single-source dependencies as urgent.
+- **Proposed feature:** A "Supply Chain Map" that, for any critical part, traces its bill-of-materials back through tiers (OEM → sub-assembly supplier → raw material) using a combination of customs data, OEM disclosures, and news/scraping; flags single-source dependencies and tariff exposure; recommends AM alternatives where dependency risk is high. AI does the entity-resolution and risk-scoring.
+- **Feasibility: Hard.** Data acquisition is the hard part; entity resolution across messy supplier data requires ML + manual curation.
+
+### 1.10 Reverse-Engineering / Scan-to-Print Workflow AI
+- **Interview evidence:**
+  - Interview 76 (Mike Lenart, Greenstone Gold Mines): team already does 3D scanning + reverse engineering for parts at Greenstone. Recommended: *"Platform should explicitly support 'bring your own scan' → upload to cooperative → qualify → print workflow."*
+  - Interview 46 (Dave Whitehouse, LR): raised "obsolete IP (OEM no longer exists): Reverse engineering (Physna 3D mentioned) → scan-to-blueprint for discontinued parts."
+  - Interview 81 (Cameron Munro, DRDC): Scenario 1 (original supplier defunct) is the majority case for Victoria-class submarines — *"DRDC performs reverse engineering on physical part; creates new CAD designs based on measured samples; Canada owns the resulting IP/drawings."*
+  - Interview 52 (Heather Davis, Aker): *"Obsolete parts — those are the low-hanging fruits. You sort of skip the OEM step."*
+- **Proposed feature:** A "Scan-to-Recipe" workflow: upload a 3D scan (point cloud / mesh), AI cleans the mesh, infers nominal geometry, identifies likely material from a library, flags critical dimensions for tolerance specification, and outputs a manufacturable CAD + a draft qualification plan. Pair with a marketplace of qualified reverse-engineering service providers.
+- **Feasibility: Medium.** Mesh cleanup + geometry inference are well-studied; the hard part is integrating with downstream CAD/CAM and certifying equivalence to the original part.
+
+### 1.11 IP-Protection / Permission-Based Access Layer (with AI-assisted classification)
+- **Interview evidence:**
+  - Interview 46 (Dave Whitehouse, LR): raised IP protection before AddManuChain even reached that slide: *"Just providing assurance to the manufacturer, the OEM, that the IP is being protected throughout that whole process, and that you're not simply going to hand it up to their competitors. I think that's a really key aspect. That would have to be established before talking or trying to bring in the OEM."*
+  - Interview 23 (Jim Granger, MAN Energy): *"The hurdle that I would see is a lot of companies don't want to share IP. It doesn't matter how strong the NDA is."* 15 years at GE taught him this.
+  - Interview 21 (Arad Gharagozli, Galaxia): *"They're very worried about IP. And in some cases you're also getting into controlled goods. If you're printing a nozzle for a system that is a controlled good, people are not going to do that."*
+  - Interview 79 (Andrew Black, GTICS): *"No one other than my company will ever make that part. I can assure you they will say that because… they have warranty."* OEM resistance is structural, not negotiable.
+  - Interview 20 (Assembly Studio): entire business model built on IP security — encrypted on-site Raspberry Pi storage, no cloud, physical pass-keys.
+- **Proposed feature:** Not strictly "AI" but a foundational layer AI features sit on: (a) AI-assisted classification of every uploaded design as Active-OEM / Obsolete / Public-domain / Reverse-engineered; (b) permission-based CAD release (file unlocked for print only on OEM + customer + cert-authority sign-off); (c) full audit log of who accessed what; (d) optional black-box hardware at the print facility (per Dave Whitehouse #46 + Assembly Studio #20). AI's role is the classification + anomaly detection on access patterns.
+- **Feasibility: Medium–Hard.** Crypto + audit log is standard; the AI classification is novel but tractable. The hard part is governance and OEM trust — Shawn Sooley (#32) warns industry credibility is the gating factor, not technology.
+
+### 1.12 Automatic Print Routing & Job Optimization
+- **Interview evidence:**
+  - Interview 53 (Polyunity): target AI state includes *"Automatic print routing (which center, which machine, which material?)"* and *"Automated audit log generation on completion."*
+  - Interview 80 (Sebastian Piegert, Siemens Energy): governance framework — what MUST be centralized (machine calibration, powder specs, process parameters, post-print treatment) vs. what can be distributed — is the prerequisite for routing AI to be safe.
+  - Interview 32 (Shawn Sooley): Exxon already has Markforged/Onyx printers on rigs that are underutilized — opportunity for managed routing into idle capacity.
+  - Interview 21 (Arad Gharagozli): confirmed supply-side thesis — companies with idle printers are willing to monetize downtime.
+- **Proposed feature:** A "Smart Print Router" — given an order, match to the best qualified facility by (a) certification scope (LR/DNV/ABS), (b) material capability, (c) machine availability, (d) logistics cost to destination, (e) IP classification (only route to cleared facilities). Include a supply-side marketplace where idle certified capacity is listed.
+- **Feasibility: Medium.** Matching logic is straightforward; the work is building the facility-capability graph and qualifying facilities into the network.
+
+### 1.13 Failure-Pattern Recognition / Cross-Project Learning
+- **Interview evidence:**
+  - Interview 84 (Bachar Reaction Dynamics): AI adoption path is explicit — *"Phase 2: Data aggregation and anomaly detection (failure pattern recognition). Phase 3: Predictive process optimization (reduce failures from 1/50 to 1/100). Phase 4: Cross-project learning (knowledge management across builds)."* Quote: *"if AI helps you reduce failure rate from 1 out of 50 to 1 out of 100, that's already great usage."*
+  - Interview 80 (Sebastian Piegert, Siemens): same phased model — admin AI first, then anomaly detection, then predictive process optimization, then cross-project learning.
+  - Interview 72 (Cassidy Silbernagel): most AI/ML in AM is *"hype"* today but *"creating new process parameters from scratch"* is where AI helps — exploring parameter space faster than manual trials.
+- **Proposed feature:** A "Build Intelligence" module that aggregates outcomes (pass/fail, mechanical test results, post-build inspection) across all builds in the network, learns which parameter sets and geometries correlate with failures, and surfaces recommendations when a new similar build is queued. Start with descriptive dashboards; move to predictive after enough data.
+- **Feasibility: Hard.** Requires data-sharing agreements across competing facilities; needs 1000+ labeled builds before ML is meaningful. Multi-year horizon.
+
+### 1.14 Administrative AI (Documentation, Email, Audit-Trail Generation)
+- **Interview evidence:**
+  - Interview 84 (Bachar Reaction Dynamics): *"For me, I use AI to help draft emails, and that's the best use of emails… so far we've been using it but not necessarily for engineering as much as it is, you know, emails and documentation and stuff like that."* Recommended framing: *"reducing tedious work" not "replacing engineers."*
+  - Interview 64 (Dean Dalpe): uses ChatGPT/Perplexity/Genesis for manual interpretation; flag is that data backend must be clean.
+  - Interview 80 (Sebastian Piegert): Phase 1 = *"Documentation templates, email drafting, report generation."* Don't oversell AI capabilities to conservative industry.
+- **Proposed feature:** Already partially present (z-ai-web-dev-sdk chat assistant + audit report generation). Extend to: (a) auto-draft certification submittal cover letters, (b) auto-generate audit-trail summaries on every print job, (c) auto-draft emergency-incident reports, (d) auto-translate technical docs for international partners.
+- **Feasibility: Easy.** Existing AI infrastructure (askAI/askAIJson + 25s timeout) supports this directly.
+
+### 1.15 Field-Technician Smart Assistant (ChatGPT-like Guidance for Remote Operators)
+- **Interview evidence:**
+  - Interview 82 (Michael Kobalch, Kinross Gold): named ease-of-use as a critical adoption barrier — remote mining sites have varying technical capabilities. *"Simple operation (ChatGPT-like guidance) = scalable. Requires specialized engineers = limits deployment."*
+  - Interview 64 (Dean Dalpe): field-tech use case verbatim — *"How do I do fusion on a 2-inch plastic pipe in Toronto? It comes back: 'Based on what you're saying, here's the manual section.'"*
+  - Interview 75 (David Bursey): vision of offshore operator with no engineering staff printing parts.
+- **Proposed feature:** A simplified mobile-first assistant aimed at the rig/floor technician (not the platform admin). Three modes: "Find a part" (search the digital inventory by photo, sketch, or part number), "Walk me through printing it" (step-by-step guidance with safety prompts), "Log this job" (voice-to-text job-completion note that feeds the knowledge-capture system). This is the consumerization layer on top of the admin platform.
+- **Feasibility: Easy.** The base z-ai-web-dev-sdk assistant already exists; this is a role-scoped, simplified UX on top.
+
+---
+
+## 2. Role-Specific AI Needs
+
+### End Users / Clients (offshore operators, maintenance teams, mining)
+- **Top 3 wants:** (1) Auto-triggered printing when safety stock runs low (Bursey #75, Hudon #69); (2) "ChatGPT-like guidance" so non-engineer rig staff can use it (Kobalch #82, Lenart #76); (3) Smart manuals / context-aware technical answers in the field (Dalpe #64).
+- **Pain to avoid:** Overpromising AI as decision-maker (Dalpe #64: AI for interpretation, not decision-making); selling "AI" as a headline (Sooley #32: hard sell).
+- **What they'll pay for:** Production-criticality calculators (Aker #52, Bursey #75), emergency-vs-print ROI (Dicken #60, Garcia #44), cross-region inventory visibility (Dicken #60, Dalpe #64).
+
+### OEM Partners
+- **Top 3 wants:** (1) Iron-clad IP protection that doesn't require them to trust a startup (Granger #23, Galaxia #21, Black #79); (2) New revenue from licensing their designs into the network (Polyunity #53 predicts OEMs will become licensed distributors); (3) Knowledge that AM parts meet OEM-equivalent specs (Garcia #44, Paulin #31).
+- **Pain to avoid:** Anything framed as "disrupting" their parts monopoly (Kobalch #82, Paleagus #83).
+- **What they'll engage with:** Per-print royalty models (Ali Mahmoudi #47), digital-twin metadata enrichment so OEMs can simulate before physical print (Beatty #33: "illuminate more than just the top line part, but also all of the metadata").
+
+### Certification Authorities (LR, DNV, ABS, DRDC)
+- **Top 3 wants:** (1) In-process monitoring data that lets them reduce destructive testing without losing confidence (Saxty #45 — LR's stated future end-goal); (2) Standardized documentation binders they can audit quickly (Saxty #45 7-step framework, Butler #42); (3) Pre-qualification of facilities so per-order certification is lightweight (Butler #42: "prerequisite to being included in a digital inventory").
+- **Pain to avoid:** Being blamed for stifling innovation (Beatty #33: *"certifying authorities haven't led the charge"*); ad-hoc case-by-case assessments (Munro #81: current state is "ad hoc manner").
+- **What they'll partner on:** Research collaborations on in-process monitoring (Saxty #45 → Nasiri #11), framework-building for AM in defence (Munro #81, May #71: "framework doesn't exist… once that's in place, I would definitely see a great appetite").
+
+### Print Centers / Facilities
+- **Top 3 wants:** (1) More utilization of idle capacity (Morgan #5, Sooley #32, Galaxia #21); (2) Demand forecasting so they can plan machine time (Saxty #45, Beatty #33); (3) Reduced software-fragmentation — Velo 3D's integrated stack is the moat they envy (Bachar #84).
+- **Pain to avoid:** Competing with their own customers who bring work in-house once volumes grow (Silbernagel #72); losing IP control of their process parameters.
+- **What they'll use:** Smart print router (Polyunity #53), unified digital-thread tracking (Silbernagel #72: "broken everywhere"), powder-batch traceability tools.
+
+### Labs / Testing
+- **Top 3 wants:** (1) Access to a stream of qualified test work (Nasiri #11, Mohammadi #41, Bishop via multiple interviews); (2) Standardized test-coupon protocols so results are reusable across customers (Saxty #45); (3) Research partnerships on in-process monitoring and defect detection (Nasiri #11 ↔ Saxty #45).
+- **Pain to avoid:** Being treated as a checkbox rather than a co-developer.
+- **What they'll contribute:** Material data, defect signatures, qualification evidence — which feeds opportunities 1.4 (In-Process Monitoring) and 1.13 (Failure-Pattern Recognition).
+
+### Platform Admins (AddManuChain operators)
+- **Not directly interviewed** — but the worklog and interview with Steven Polyunity (#53) and Bachar (#84) make the admin needs clear:
+- **Top 3 wants:** (1) Approval-pipeline workflow with gates mapped to LR/DNV/ABS standards (Polyunity #53: the pipeline IS the product); (2) Audit-trail generation for every job (Polyunity #53); (3) Phased AI rollout — admin first, engineering later (Bachar #84, Piegert #80).
+- **What they need from AI:** Reduce documentation labor (Bachar #84: emails, reports), surface anomalies in the platform's own operations (e.g., a print job stuck at a certification gate for >X days), and generate board-ready reports from raw operational data.
+
+---
+
+## 3. Recurring Pain Points AI Could Solve
+
+Across the 74 interviews, the following manual / slow / frustrating processes were named repeatedly and are directly automatable:
+
+1. **Manually scanning thousands of inventory line items to identify AM candidates.** Munro #81: *"If you look at how many parts are obsolete or difficult to procure on a naval vessel, it's thousands and thousands. People are having to go through line by line… It's still very labor-intensive."* Also raised by Dicken #60, Silbernagel #72, Lee Vessey #13, Bursey #75.
+
+2. **Manual PO transmission between disconnected ERP systems.** Dicken #60 (ExxonMobil): *"There's a significant amount of manual intervention today because we are spread across multiple systems… POs don't reach the right vendor, or vendor updates don't reach end-users."*
+
+3. **Manual inventory duplicate detection across regional warehouses.** Dicken #60, Dalpe #64: same SKU carried in 3+ regional warehouses because regional teams don't know what others stock.
+
+4. **Manual rush-order coordination (and the human-error failures it creates).** Wood #29 (Proax): *"It gets missed… You got that human element and that's where it goes wrong… I physically have to do that calling, and it's a shame, but I can't rely on anybody else."*
+
+5. **Manual certification-documentation binders.** Saxty #45 laid out a 7-step pathway each requiring extensive documentation. Sooley #32: operators will *"never"* do this themselves — fear of extra work is the real barrier.
+
+6. **Manual data translation between CAD / STEP / machine code / post-processing — the broken digital thread.** Silbernagel #72: *"It's broken everywhere, because there is no one single unified process. You're constantly losing the traceability along the way."*
+
+7. **Manual powder-batch traceability.** Silbernagel #72: *"When you're dealing with powder, how do you keep traceability of what's in your powder bed, unless you're using virgin powder every single time?"*
+
+8. **Manual reverse-engineering workflows for obsolete parts.** Lenart #76, Munro #81, Whitehouse #46 — teams are already doing 3D scanning but the scan-to-printable-CAD path is ad-hoc.
+
+9. **Manual material-substitution decisions when proper material isn't available.** Bursey #75: forced to substitute "lesser grade" materials and increase inspection frequency; documents everything manually for regulators.
+
+10. **Manual expert-knowledge transfer when experienced technicians retire.** Cumming #10, Granger #23 ("Those guys are gone"), Hudon #69, Hedrick #58 (70-year knowledge gap).
+
+11. **Manual risk-based inspection scheduling.** Bursey #75: current API 580 qualitative consensus model is stakeholder-meeting-driven; Paulin #31: regulators evolving from prescriptive → performance-based but the data integration is manual.
+
+12. **Manual data silos in utilities (maintenance data, weather, condition).** Chubbs #30: *"It's just crap accumulating, and no one really can pieces together and look at the big picture."* Same theme in Dalpe #64 (Enbridge) and Simha #55 (MSC: "people still use Excel").
+
+---
+
+## 4. Direct Quotes Worth Highlighting
+
+1. **On the killer use case (auto-triggered printing):**
+   > *"If we could print components offshore in a way of just being an automatic process, and when inventory drops, the printer kicks in and produces more... that would be fantastic."*
+   — David Bursey, Senior Corrosion Engineer, Cenovus Energy (Interview 75)
+
+2. **On AI for AM-candidate identification:**
+   > *"[Apply AI to] inventory management so there can be notifications or forewarning that 'this set of parts is going to be problematic in the future'… 'Here are some parts that are going to be problematic, and these parts are also suitable for AM.'"*
+   — Cameron Munro, Defence Scientist, DRDC (Interview 81). Reaction: *"That's a fantastic idea… That would be so useful."*
+
+3. **On the certification bottleneck being the only unsolved circle:**
+   > *"It's a Venn diagram: there's Value, there's Capability, and then there's Permission… I actually think that this is a real big stifling of innovation here in that the certifying authorities haven't led the charge."*
+   — Tyler Beatty, R&D Advisor, ExxonMobil Canada (Interview 33)
+
+4. **On the parts problem being a 1-2% / 98% problem:**
+   > *"My cost is 1 to 2% of the total capex. If you don't have it, you can lose 98% of your production."*
+   — Douglas Garcia-Golindano, Midstream Asset Manager, Equinor (Interview 44)
+
+5. **On the workforce knowledge gap driving AI:**
+   > *"The real power [of AI] is that lack of technical expertise. There is a real lack. It's not like it was 30 years ago where there was always one person who knew everything. Those guys are gone."*
+   — Jim Granger, former Managing Director, MAN Energy Solutions Canada (Interview 23)
+
+6. **On AI's realistic role (administrative first):**
+   > *"AI can be a very powerful tool if you use it to support your engineering and decision-making… if AI helps you reduce failure rate from 1 out of 50 to 1 out of 100, that's already great usage."*
+   — Engineering Lead, Bachar Reaction Dynamics (Interview 84)
+
+7. **On IP protection as the gating concern:**
+   > *"Just providing assurance to the manufacturer, the OEM, that the IP is being protected throughout that whole process… I think that's a really key aspect. That would have to be established before talking or trying to bring in the OEM."*
+   — Dave Whitehouse, Advisory Group Manager (Naval/Defense), Lloyd's Register (Interview 46)
+
+8. **On smart manuals / AI for interpretation (not decision):**
+   > *"We use ChatGPT for all our manuals. Google can't do this. A guy in the field asks, 'How do I do fusion on a 2-inch plastic pipe in Toronto?' It comes back: 'Based on what you're saying, here's the manual section.'"*
+   — Dean Dalpe, Governance & Operations Excellence, Enbridge (Interview 64)
+
+9. **On ease-of-use as adoption gate for remote operations:**
+   > *"Simple operation (ChatGPT-like guidance) = scalable. Requires specialized engineers = limits deployment."*
+   — Michael Kobalch, Kinross Gold (Interview 82)
+
+10. **On the certification-as-a-service opportunity:**
+    > *"They're never going to do that [pursue AM certification themselves]. I will do that. You will do it. Someone — one of us, someone like us will do that."*
+    — Shawn Sooley, CEO, Shield Group of Companies (Interview 32)
+
+11. **On LR's future direction (in-process monitoring):**
+    > *"How can we move to monitoring the manufacturing process… AM is particularly suited to that because you've got the process monitoring techniques that you can do while you're printing, there by layer."*
+    — Adam Saxty, Lead AM Technologist, Lloyd's Register (Interview 45)
+
+12. **On problem-first vs. technology-first (caution against AI hype):**
+    > *"What is the key pain point that you're solving? Forget the technology. Don't go in with technology first."*
+    — Paleagus CEO (Interview 83)
+
+---
+
+## 5. Recommended Implementation Roadmap
+
+### Phase 1 — Quick Wins (1–2 features, 0–6 months)
+Build on the existing z-ai-web-dev-sdk assistant and seed data already in the platform.
+
+1. **AM-Candidate Identification Engine** (Opportunity 1.1) — ship a "Part Suitability & ROI" screen on top of the existing blueprints/orders data. Ingest a customer's BOM, score each line on Aker's checklist (cert level, material printability, nearby qualified facilities, safety criticality, cost-benefit, lead-time), output a ranked shortlist. **Why first:** validated by the most interviews (Munro, Dicken, Silbernagel, Kirby, Aker, Polyunity, Bachar, Lenart, Vessey), and produces an artifact (the ranked part list) the sales team can use immediately.
+
+2. **Cross-Budget ROI / Business-Case Calculator** (Opportunity 1.6) — a one-page generator per candidate part: upfront AM cost vs. downtime avoided vs. hot-shot avoided vs. working-capital freed, with cross-budget attribution. **Why first:** Mark Kirby #9 named this the actual barrier (more than certification); OMV/JMF/Bursey/Silbernagel all want it; easy to build (spreadsheet math + LLM-generated narrative).
+
+### Phase 2 — Medium Effort (2–3 features, 6–18 months)
+These require integration work or partnerships but no fundamental research.
+
+3. **Certification-as-a-Service / Compliance Documentation AI** (Opportunity 1.5) — encode Adam Saxty's 7-step pathway as workflow templates per industry (Marine LR Rules / Offshore application standards / Aerospace PMA). AI auto-fills documentation, tracks evidence, generates submittable binders, surfaces prior approvals ("approval cascade" per Polyunity #53).
+
+4. **Smart Replenishment & Auto-Triggered Printing** (Opportunity 1.2) — start with a single connector (e.g., Maximo or SAP EWM). Monitor safety-stock thresholds; when crossed, auto-open a print job at the nearest qualified facility with a human approval gate. **David Bursey's "fantastic" use case.**
+
+5. **Knowledge Capture & Smart Manuals** (Opportunity 1.7) — RAG chat over a customer's maintenance manuals + SOPs + work-order history (Dean Dalpe's exact use case). Add a structured "post-job debrief" capture form that feeds a searchable institutional-memory store. **Cumming #10 named this the "highest immediate value signal."**
+
+### Phase 3 — Ambitious (1–2 features, 18–36 months)
+These require research partnerships, multi-year data accumulation, and trust-building.
+
+6. **In-Process Monitoring + ML for AM Certification** (Opportunity 1.4) — partner with Dalhousie (Dr. Nasiri) + Lloyd's Register (Adam Saxty) + DRDC (Cameron Munro/Brian May). Build a "Build Confidence Score" from per-layer sensor telemetry, train on historical build-vs-test-coupon outcomes. The long-term moat: this is the technology that unlocks on-site/on-vessel AM printing by solving the **machine-variability problem** Saxty #45 named as the primary unsolved barrier.
+
+7. **Failure-Pattern Recognition / Cross-Project Learning** (Opportunity 1.13) — once Phase 1–2 features have generated 1000+ labeled builds in the network, aggregate outcomes and learn which parameter sets and geometries correlate with failures. Surface recommendations when a new similar build is queued. Bachar #84 and Piegert #80 both name this as the Phase 3–4 AI vision.
+
+### Foundational Enabler (parallel, all phases)
+**IP-Protection / Permission-Based Access Layer** (Opportunity 1.11) — not optional. Without this, OEM partners (Granger #23, Whitehouse #46, Black #79, Galaxia #21) will not engage, and without OEM engagement none of the other features reach the supply-side density needed to be useful. Design the data architecture with role-based access, full audit logging, AI-assisted design classification (Active-OEM / Obsolete / Public / Reverse-engineered), and black-box hardware option from day one.
+
+### Cross-Cutting Principles (validated by interviewees)
+- **Lead with the problem, not the AI.** Sooley #32: *"I wouldn't try to sell AI."* Paleagus #83: *"Forget the technology."* Beatty #33: *"business transaction space, not technology."*
+- **Sell trust, not connectivity.** Trevor Butler #42: differentiate from FieldNode by selling trust, not just a marketplace. Paleagus #83: competence > technology.
+- **Phase AI as administrative first, engineering later.** Bachar #84 and Piegert #80 both gave the same phased model — this aligns with conservative-industry adoption realities.
+- **Start with obsolete/non-critical parts.** Vessey #13, Aker #52, Polyunity #53, Bursey #75 all named this as the beachhead — sidesteps OEM IP and certification complexity.
+- **Find the right 5%.** Kirby #9: AM is a 5% solution; be excellent at identifying that 5%. Silbernagel #72: same advice.
+
+---
+
+## Notes on Method and Limitations
+
+- The 74 interview folders vary in depth — some are full transcripts + analyses (e.g., 5, 9, 30, 32, 33, 75, 76, 80–84), others are pre-interview briefs only (e.g., 50, 51, 65–68). Where an interview folder contained only pre-interview research (no transcript or insights), I did not invent evidence; for example, Interview 74 (Mohamad Nasiry, SLB) had only a strategy brief and pre-interview research — the *expected* AI opportunities listed there (predictive maintenance AI, autonomous print trigger) are pre-interview hypotheses, not validated interviewee statements, and I have flagged them as such by excluding them from the evidence base for the opportunities they would support.
+- Some interviews are duplicated across folders (e.g., 13/14 both contain Lee Vessey material; 9 and 10 both involve Mark Kirby; 25 has multiple files). I have cited by primary folder.
+- Quotes are reproduced verbatim from the cited interview's Key Insights / Analysis file (which itself quotes the transcript). Direct transcript verification was done for the 5 most AI-rich interviews (#80, #81, #82, #84, #75).
+- "Frequency of mention" in Section 1 is approximate, based on the number of distinct interviewees who independently raised the theme; interviews that simply affirmed a previous interview's point are counted as supporting evidence, not independent originators.
+

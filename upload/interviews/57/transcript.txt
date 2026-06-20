@@ -1,0 +1,331 @@
+Speaker 1  (00:43)
+Hello, right about the back. Thank you. And much, are you 
+
+Speaker 2  (00:48)
+I'm very well, thank you. 
+
+Speaker 1  (00:49)
+Perfect. Fantastic. Really appreciate for being here with me today. 
+
+Speaker 1  (00:53)
+I mean, I know you're scheduled probably busy, but I'm trying to get it straight into sunshine itself. So let me just introduce that myself again. I think that house university right now on Canada and around 2 years ago we were talking a bit of company and we found that we have an idea about some kind of 3D printing and added, manufacturing. 
+
+Speaker 1  (01:15)
+Recently, I got accepted in the programme that it is programme. We have to talk with at least 100 experts throughout the old world in order to some kind of get their ideas about the challenges about some kind of their perspective that they have to validate our idea, because right now, this is a role one, we hope that we could make it as it start up hopefully soon, and that's why I reach out to you. In order to understand that what is happening, that was a little bit about myself. 
+
+Speaker 1  (01:41)
+Can I have you to adjust into yourself a little bit? I know I know everything from your linked him. But that would be perfect. 
+
+Speaker 1  (01:47)
+If I just 
+
+Speaker 2  (01:48)
+Yeah, so I've been I've been working with CSL for over 27 years now always involved in technical operations at the side, and my current proview is the design and new building programmes major convergence that aspects as well as our manager IT department. So the vision is to Um, merge and leverage the know how that are ITT team have and to the benefit of brain operations? Basically try to fuse and take advantage of the digitization. 
+
+Speaker 2  (02:32)
+During we have commenced over 7 years ago, so we have heaps of data where we're leading edge on that front. But I think that there's more we could do with this data with the view to automation in the future. Um. 
+
+Speaker 2  (02:47)
+And Yeah, that's pretty much sure. Let's been occu. 
+
+Speaker 1  (02:53)
+Yeah, I mean, I really would like to start this conversation, but since you talked about the data itself. And you talked about the automation, have you considered any some kind of machine learning or AI technology? 
+
+Speaker 2  (03:06)
+Yeah, of course, we are working. With several different AI. Companies not startups, but companies that have experienced not in the marine or maintenance domain, but in AI as a field as a core field. 
+
+Speaker 2  (03:29)
+And we're leveraging the investment from the ocean's super cluster. Okay? 
+
+Speaker 1  (03:33)
+Okay to school. 
+
+Speaker 2  (03:35)
+So we have 2 and a 1 ongoing projects right now, where one focuses on the holy Grail of Justin time scheduling. So Um, the whole concept is from a optimisation of the entire green supply chain, how would ports and Charters, shippers and pilots All worked together on one scene planning platform and so that we can optimise ship speeds for just a time arrivals and this is happening. These are projects that we're doing here in Canada. 
+
+Speaker 2  (04:22)
+We're doing less our international Fleet, but a lot more in Canada. And then another project we're working on is because we've equipped our entire Fleet globally, including our Canadian vessels, regardless of their age. With data locking capabilities, we are tracking the performance of All of the equipment so we tap into the alarm and monitoring panel, but we have more visibility into what our equipment is performing. 
+
+Speaker 2  (04:52)
+Under different conditions, because we can overlay that with Ah, other dimensions like whether black plung, and so and we're talking about measuring and deep Time this data every 10 seconds. 
+
+Speaker 1  (05:12)
+Interesting. 
+
+Speaker 2  (05:13)
+Yeah, and so we're using that. With another Ferman, and in partnership with TK over and that cover to solve for predictive maintenance. 
+
+Speaker 1  (05:25)
+Interesting. I mean, I really like it because he is absort of the like the thing that I'm trying to achieve, but I mean, maybe in different kind of direction, but the thing is, this is the procedure for each meeting that they have. I prepare a couple of questions, maybe 45 questions, first of all. 
+
+Speaker 1  (05:42)
+I'm trying to understand the problem. The challenge, because obviously, if you don't have any problem, you don't have any solution that doesn't make any sense. And at the end, I would like to talk a little bit more about my some kind of concept or startup that I'm working out, but that would be okay, we do if we go over, okay, perfect. 
+
+Speaker 1  (05:59)
+So sorry, I have to do something every questions from my laptop itself. So the very first question that I do have, by the way, I really left the way that you are doing because it is very, very matched with the one that I'm trying to understand the problem, the great first one is obviously about the global supply chain coordinations. In a globally distributed maritime operation like CSL how do teams currently coordinate informations according vessels ports and different geographics? 
+
+Speaker 1  (06:25)
+What's the biggest challenge in keeping real-time visibility into maritime flows, inventory and operational status across your athletes? 
+
+Speaker 2  (06:39)
+Um, we have We have regional Management of E commercial as well as technical operations here. So for example, we have a Canadian flaged Fleet which we Run out of our Montreal office, but we also have an Australian flag. Fleet and foreign flag vessels trading in the Australian coast, and those vessels are managed commercially and technically by a team located in senior Australia as well as Perth. 
+
+Speaker 2  (07:20)
+So because of the nature of our trades, where we are pretty dedicated to short sea shipping. Which leads me, which makes us Not you need far from unique because there are a lot of shortsea shipping trades globally, but we're very distinct and our needs and operating philosophies very distinct from ocean-going vessels. And because we are specialising in shorts of shipping, it requires a nippleness and Short reactive time. 
+
+Speaker 2  (08:03)
+The vessels uptime because the shorter the trips, the more we utilise our material handling equipment, the more we create value for our customers utilising this higher capital investment. So if it's a long trip and we're not using our self-learning equipment, the customers paying a high freak rate for the service that they're really not using and so because we're wired for this There's an in short circle cycle times and quick turnaround times we found it essential to almost collocate with our customers or at least as a bit of a being the right time zone, but also understand the reality is because the agents, if there are agents that we have to deal with or do our own agency. 
+
+Speaker 2  (08:51)
+Like, we're doing Canada. And our contracts tend to be with industrial customers where we have long-term contracts. We're not in the business of buying an asset buying a ship when the market is depressed and then hopefully selling it when shipping rates high. 
+
+Speaker 2  (09:15)
+That's not the business we're in at all. We either build specifically or buy suppleers and other ship types that are related and run them or years. And years years. 
+
+Speaker 1  (09:30)
+Makes 
+
+Speaker 2  (09:33)
+Power until the recycle so the challenge is that I'll be speaking up is specific to this blends of shortsak ship shipping, okay? And because we require this speed, we've developed local Contacts, whether there be channels or agents who we build these relationships with over time who we can rely on to. React, when we need assistance of any sort, whether resourcing Um, a replacement part or or the such what we are trying to do is get smarter on Ah, your dictative maintenance so that we can properly allocate capital funds to building the right inventories. 
+
+Speaker 2  (10:33)
+And And always be a little bit proactive ahead of a breakdown so that we could walk maximise the vessels of time. Yeah, and commercial operations because we have A Uh, long-term term relationship with the customers. We're looking, we have this auto dynamic dialogue where we can react in builton And what we're finally able to do, because we have Full disability to the ship's performance and its fuel consumption and the freight rate we now have visibility in the cost of our decisions. 
+
+Speaker 2  (11:20)
+So for example, to accommodate a customer's need to delay the ship's arrival because they've had their own issues. There's their site. We can now Free room E model the scheduling model to understand what is the cost of Swapping out ships to accommodate the customers requirement and we can engage with the customer. 
+
+Speaker 2  (11:50)
+Ah, differently and see looked wee. We appreciate this change. Would you really split the costs or look it would? 
+
+Speaker 2  (11:59)
+It would, the following change has X amount of dollar value for us. We could split it. So what if we slow down E? 
+
+Speaker 2  (12:07)
+Chef's arrival, which would come usually at 1 side. It costs, but it allows the port to avoid double overtime fees. For example, so we can engage in win-win conversations. 
+
+Speaker 2  (12:20)
+And the these are problems that we are solving today because We've invested over 507 years now. We started the project. 17 We've invested in the Getting the right data Reliably too provides the insight. 
+
+Speaker 2  (12:48)
+Without the data. We'd still be flying. Lined, based on best guess. 
+
+Speaker 2  (12:55)
+And this is I think, a common challenge where we had the Benefit and the privilege of being privately owned where the owners Took a financial leap because this enterprisation is extremely expensive, especially when you're doing it for the first time when you're learning a hard way things too. Decisions may that have to be redundant redund, but and it does normally fall in the Evo slivery transportation where you're focused on making a bug today that kind of lassive investment. That takes years to see the financial benefit from is Not confirmed, and it does suit the traditional maritime eato. 
+
+Speaker 1  (13:51)
+Yeah, makes sense perfect. Thank you. Thank you very much for your great comparsive answer so you talked about digitization and try to adopt the technology. 
+
+Speaker 1  (14:02)
+Obviously what new digital solutions are introduced? What typically prevents different departments like operations, engineers procurement, you name it from working simple C together. How do you currently address the frition between legacy systems and newer, digital tools that teams need to adapt? 
+
+Speaker 2  (14:24)
+Um. The first thing we need to address is our two things. One current understanding of the existing processes departments, even under the same organisation departments work in silos. 
+
+Speaker 2  (14:39)
+And For a digitalization solution to work, we need to have a common understanding and common definition of the various Datasets and with legacy systems that have been developed to address a specific department. Um, how do we First, agree on. The and understanding what is the process? 
+
+Speaker 2  (15:12)
+What are the processes? How are they done? And what data points go from what department to another and does the other department's legacy system? 
+
+Speaker 2  (15:26)
+You saint terminality, but for a different purpose. And it took you for us to realise that this was such a problem, and it's a massive undertaking. So another challenges Who drives exchange is? 
+
+Speaker 2  (15:47)
+It's much easier for business leaders of their department to protect their department. And not wanting to allocate resources from within their departments to focus on a bigger picture halsome, fume of the entire business process. So that you took us some time, but we're on that track where we're not intentionally. 
+
+Speaker 2  (16:11)
+Um Nicky, a huge Pat, all hands-on deck push, but it's a continuous process where we look at once, the processes have been identified, we tackle when process at the time and see and define. Pull in the business that's what processes And the second part in which we are in is Now that we have digital tools available, do we want to redesign any processes to leverage with these tools can provide? So it's a lot of Bringing awareness? 
+
+Speaker 2  (17:00)
+2. The business process owners about what the possible is. Well, at the same time, managing their fear of changed and of obselles, which is a huge factor so in anything that we do, there's a heavy dose of management of change that's required. 
+
+Speaker 1  (17:27)
+Simple excession, thank you very much. So let's shift to the fact that because you also mentioned about the timing and decision-making speed. So in the maritime sector how much does it typically take for operational data to translate into actual decisions that improve efficiency or safety? 
+
+Speaker 1  (17:49)
+What information gap slow down decision-making today? 
+
+Speaker 2  (17:56)
+And so in my context, bossia salad, I would say our answer is as little as 10 seconds tensor games as and that's because The data logger is sending all of its data to a cloud. And then we've developed Business logic around the data That alerts us in real-time, us and real-time. And this is best to stabilise for it. 
+
+Speaker 2  (18:28)
+Give you a practical example. Um, sub ships heading down the state learnance Golf will be required to reduce its speed. Because transport Canada has subsided the right wits. 
+
+Speaker 2  (18:43)
+And as you you might know, that information from transport candidate is quite dynamic. Traditional transport of facts or an email, and then we're dependent on the crew, taking notice email and just writing it down on the board, passing on the information from one watch to another. And Human Memory is perfect. 
+
+Speaker 2  (19:13)
+Some vessels might speed right through. Get fine, yeah, so to solve for this because our focus was the avoidance of any contributions which is one of the business values. That we were seeking to attain to the investment digital transformation. 
+
+Speaker 2  (19:33)
+So the business logic that we built is at all times the software nose would where the vessel is. And it knows what speed is doing. So we feed inside the master model. 
+
+Speaker 2  (19:48)
+The The salants that have been identified by transport candidate. And that information is replicated to other vessels in that area. So there's no manual entry. 
+
+Speaker 2  (19:59)
+There's no email, there's any there's someone in the office who owns Creating these zones and identifying them as a low speed And Within when the vessel is at a certain speed, it projects when it therefore will be arriving at this low speed zone, it'll send a notification, an oral Q. To the vest nada bizbizwizzwiss another alarm that the crew can Wonder where this buzz is coming from in the whalehouse, but an actual voice, then I'll say we loose fee, that's it. Because it knows, if it doesn't reduce speed within that 5 minute window, it will be in outside of the tolerance. 
+
+Speaker 2  (20:45)
+And so the crew have described as tool as their guardian. Angel Because it prevents them from getting into trouble. We do the same thing for discharging. 
+
+Speaker 2  (20:58)
+Environmentally sensitive areas. It knows speed it knows when it will so it will send an alert in advance of all at the time of Breaking the law, but in advance of so that the right people could follow the right chains of commanding activity to do the right thing, the whole vision is, how do we in management? Hello Or enable the crew to do the right thing. 
+
+Speaker 2  (21:24)
+The first time and every time 
+
+Speaker 1  (21:27)
+Lost that. Yeah, I mean, I really like it, that how we adopted technology. I mean, it is not that very common when you reach out to the industry, people they're very personing, they said that, oh technology, no, no, no, you just move all the school. 
+
+Speaker 1  (21:40)
+I really like you're some kind of approach that is economists obvious. 
+
+Speaker 2  (21:45)
+It's if you're If you're key focus is profitability You know, some days I'm thinking, you know what? Old school sounds pretty good to me right now. Let's do the plan maintenance using XL spreadsheet and be done. 
+
+Speaker 1  (22:03)
+Text 
+
+Speaker 2  (22:07)
+But we're going to be stuck in a analogue way of operating and be replaced by digital frontier, organisations who will have solved or automation and robotics. That be done. So that's what I'm trying to position ourselves for the next waves and impact will continue past my retirement, but we have to at least speak directionally. 
+
+Speaker 1  (22:37)
+Yeah, the Texas. I got it, so actually did the next question was about technology. So we already some kind of pass that one. 
+
+Speaker 1  (22:47)
+So my question, maybe this is my final question because my main focus would be on digital. There's some kind of I can say that. Yeah, added manufacturing that was trying to think about other words in behalf it these days. 
+
+Speaker 1  (23:02)
+So how you are dealing with some kind of additive manufacturing. Do you use that one in some kind of video today? So 
+
+Speaker 2  (23:12)
+Here in my two sets, sorry. 
+
+Speaker 1  (23:14)
+Yeah, yeah, that's okay. 
+
+Speaker 2  (23:18)
+Um. I love the concept, and I think We all work at this. What's the value of despair in this technology right now? 
+
+Speaker 2  (23:32)
+What? There was one conversation I had with a representative from Williamson who really got me. Uh, grounded in this technology. 
+
+Speaker 2  (23:46)
+And I was looking at it from an investor perspective, no private owners, they're interested in investing in the next best thing, and I was doing a bit of 2 diligence for them and trying to understand because conceptually, I love it. Here's my current understanding and I'd love to be Later aware of different dimensions that I don't Um. Beyond the Beyond the plastic toys, the real value is going to be in the in the medal additive, and that is a high cost machine. 
+
+Speaker 2  (24:22)
+Got it. So if we had Um, manufacturing capabilities dot across where the ships are trading, where We could place the order and have the agents pick up whenever part and delivered to the ship sounds great, but I hadn't realised is the amount of reengineering that's required. To providing part similar in Functionality and features. 
+
+Speaker 2  (24:56)
+When built using addive technologies, which is different from machineing, but ancasting And so when I looked at the catalogue of parts that Williams had Because they had to do ground up Recalculating of sports supply by O m's At half more delose ethicate by providing this information Oh, the catalogue was very thin like thought the time for me to look at like oh the objects that a part might be the part that I needed for a ship. No, today, and I don't know if Uh, technologies have evolved that allow us to already engineer for added manufacturing the parts so that there's a almost an infinite catalogue. 
+
+Speaker 2  (26:08)
+That's really when I'm looking for a full catalogue that I can dip it to, and then for sure I would ensure To make that information available too, additive manufacturers who are supplying other industries, not just meriton. Answers, building one of those. Here's the here's the exact code. 
+
+Speaker 2  (26:32)
+And I'll see you in two weeks or whenever the tightness. I just see so much. Rushback, from O m's ooh. 
+
+Speaker 2  (26:48)
+Once data has made what's the file is shared, it's gone like IP is like, forget it all right, or just a bit. So I don't see the incentive and frankly, O ams I'd love nothing more than to not be defended on it because Expensive, they lugguate. Few alternatives they're unresponsive, like customer service after sales is just As Um, but it's it's a bit monopoly. 
+
+Speaker 2  (27:23)
+Almost So you kind of stuck This is why kind of looking forward to introducing other technologies. Nuclear Battery electric something to get us off. The dependency of these mentioned oriams, but even a high-speed or the generators. 
+
+Speaker 2  (27:48)
+Army, it's not the best of experience. 
+
+Speaker 1  (27:50)
+Yeah, I completely understand it. So the thing that maybe I can talk about is the platform that you're working. So the idea that we came up was around a couple of years ago I mean, it's not kind of actually, I can say new, it's argued. 
+
+Speaker 1  (28:04)
+The idea was there in Europe and US but we are trying to be the first platform that doing this thing in some kind of Canada, this is the idea we would like to try to make an ecosystem, the ecosystem between different entities between the OMs that probably don't like them that, but between the three different team facilities and end user and obviously a regulation bodies. So by building this ecosystem as the platform that you have that you're doing every decision. May be less than 10 second. 
+
+Speaker 1  (28:31)
+We will like to connect all of these parts together in an ecosystem to try to have all of the decision automated. Maybe using some kind of AI in technology, it as well to some kind of increase all of an accelera, everything, because at the end of the day, we are trying to reduce the downturn cost by encouraging different industries to rather than just focusing on getting the parts from local 3D printing facilities. Why I try to have the on-site through the printer for themselves? 
+
+Speaker 1  (29:01)
+Yes, at the beginning you said a lot of costs, and probably we do have a lot of problem with O ms, but we would like to take care of that. I mean, by talking with O m's and asking for sharing their IP not in the normal way, in a way that only can device can understand by encrypting using technologies in order to somehow convince them, rather than tucking directly with the customer itself, they would like to share their part of their I. P. 
+
+Speaker 1  (29:28)
+As long as they can be printed on-site. And the users can also use them another thing you were talking about. It was the digital inventory, rather than just having something unjust, in case having just in time, so maybe by doing that, we can help different industries to reduce the reduce their physical, the massive massive physical inventory at this part of the To digital inventory are just produced as part that they need and sign About your concern, because it is completely makes sense that I some kind of expected. 
+
+Speaker 1  (29:59)
+This kind of questions was the very first one was that how I can make sure the part that 3D printers, especially metal ones are printing is going to be as the same quality as a traditional one. Why I have to trust you related to that we have a company. We do have a company in Canada and new foundland Atlantic Excel, so they just got their first certifications from the Lloyd registration related to some kind of three different printing card because loident DNV are just big names out there and related to the you have about OEM so I completely understand it makes sense, it's not just a maritime, it's just everywhere, so we would like to somehow convince the oems to share their IP not in the normal way say that hey, this is the blueprint now, as long as they our device, the device that we are using that blueprint and it could understand something in three different thing called as G code. 
+
+Speaker 1  (30:50)
+So as long as they understand and it can produce the part that is okay but obviously it shouldn't be that kind of simple, so it means that when oem, or when someone try to order a part OM has to prove it regulation bodies has to prove it. And other kind of aspect, all of them are connected inside the platform to themselves. And this is the part, the secret source I've work, could be a platform we were working on it. 
+
+Speaker 1  (31:17)
+And what do you think right now, from this perspective? 
+
+Speaker 2  (31:22)
+I'm concerned with skill. 
+
+Speaker 1  (31:24)
+The scale makes sense. 
+
+Speaker 2  (31:27)
+Okay, yeah, apart, yeah, and not sure if the juice is worth the squeeze? Um. Because I see a lot of upfront costs. 
+
+Speaker 2  (31:40)
+And Um. There are a few Onboard, so let's assume that the cost of The printing equipment or the right alloys available on where Wherea seafair? No side, do you operate the machine? 
+
+Speaker 2  (32:13)
+Um. And the material onboard has remained okay because Dad. Elements is basically stored onboard for Knows how long under what shidy conditions? 
+
+Speaker 2  (32:34)
+Salt water blamat. So assuming that all of that is ideally perfect and the machine doesn't, of course, cost An army, there are very few components that are the cause of the ship. To be put off higher Even my Radar, I'll ask. 
+
+Speaker 2  (33:00)
+Flag for a one trip weather so I can keep chucking. You know I can keep moving and then arrange because I need to have a bloody technician. To come with said parts and do this well about because I can't even class will prevent me from having my own seafair to it in lesson that's where to the future where everyone is wearing these augmented reality connected devices, and then class from gondel's wear is going to say yeah, okay, it looks good to me. 
+
+Speaker 2  (33:31)
+Upload the certificate file. And we're good, it'll happen in a future. Not in Not in any time frame where I think we can. 
+
+Speaker 2  (33:43)
+You can monetize it would be my first impression. So The level of urgency for having the ability to print something just in time, isn't there when we have downtown? It is because it's something big. 
+
+Speaker 2  (34:07)
+We either have had a hall. Crack a propeller issue falling, you know. It usually requires some form of rewelding. 
+
+Speaker 2  (34:24)
+Um, short of. We have a flag on port stadium inspection and the ship is detained. Because they're not happy with t Hygrage, that's sleaky aura, but I'm not gonna have 3D prints. 
+
+Speaker 2  (34:44)
+My usual suspects. So perhaps when we are looking at the value proposition is to look at the causes of shift detensions, and to see if printing could solve for that. My God feel is not necessarily, they wouldn't be the first thing, how skeeping is why you have detentions. 
+
+Speaker 2  (35:08)
+Improper logging. Paperwork. So not sure the 
+
+Speaker 1  (35:21)
+I get, yes, I mean the very first thing that we have to work on this programme that I mean try to encourage new entrepreneurs to some kind of organary platform is the value proposition, but still I'm working on it as I just mentioned this is the right idea, but it's not saying that this project, or this platform hasn't been done before, because as I just mentioned Europe is also using this kind of platform. 
+
+Speaker 2  (35:46)
+Will and sin is doing it that so No, I wouldn't Williamson, just Um, contact 3D. Printing services, you know, east coasts and an Ontario and busy and to the same thing. Yeah, but you're looking at integrating it with The shipping ecosystem and the Canadian shipping ecosystem is very small, and not only is it small, it is Digital here, very adult. 
+
+Speaker 1  (36:23)
+Not digital. 
+
+Speaker 2  (36:25)
+They have no pressure. There I don't know there's no burning platform for them to digitise so if you're only looking at the Canadian markets, I don't think the volume is going to be there. And then if you look globally, it's already been solved by others. 
+
+Speaker 2  (36:44)
+
+Speaker 1  (36:47)
+Yeah, I get yeah, okay, perfect. At least past the 30 minutes time. But if I thank you, thank you very much for your time appreciate it. 
+
+Speaker 1  (36:58)
+I mean just one favour. To ask. I made you know, a lot. 
+
+Speaker 1  (37:02)
+I mean, right now, as you can see, I'm just researching maybe in the future I would say that yeah, I just keep that, and I'm not looking for Canadian market. I just looking for completely different thing. What would that be okay if I just shoot to another email? 
+
+Speaker 1  (37:14)
+I said that hey, do you have another maybe, 20 minutes time to talk about this? 
+
+Speaker 2  (37:18)
+Well, the latest still works. Yes, okay, cool just season any 
+
+Speaker 1  (37:21)
+Yeah, it does. Want to make sure perfect really appreciate thank you for the time that's like good take care bye bye bye bye bye bye bye by 

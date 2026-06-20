@@ -1,0 +1,24 @@
+interviewee: "Bob Hedrick"
+position: "President & Co-founder, CAMufacturing Solutions Inc."
+company: "CAMufacturing Solutions Inc."
+focus_areas:
+  - Directed energy deposition (DED) CAM software
+  - Hybrid additive-subtractive machining
+  - AI-accelerated thermal modeling
+  - Manufacturing software ecosystems
+  - OEM partnership strategy
+interview_number: 58
+date: "February 2026"
+interviewer: "Mahmoud (Michael) Kiasari"
+duration: "~36 minutes"
+referral_source: "LinkedIn / Lab2Market outreach"
+markets_served: [US, Japan, Europe, 20+ countries]
+canadian_sales: "near zero"
+key_technologies:
+  - Directed energy deposition (DED)
+  - Hybrid CNC + additive machines
+  - Neural network thermal modeling (ANSYS integration)
+  - Mastercam ecosystem add-on
+platform_relevance: "Enabler node — CAM software layer for Builder nodes; OEM network access"
+follow_up_agreed: true
+tags: [manufacturing-software, DED, hybrid-AM, thermal-modeling, CAM, OEM, Canadian-market, AI-manufacturing, digital-inventory, supply-chain]
