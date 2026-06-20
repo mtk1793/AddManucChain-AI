@@ -103,6 +103,7 @@ const rolePermissions: Record<string, string[]> = {
   // Full access to everything
   admin: [
     'overview', 'orders', 'print_queue', 'emergency',
+    'ai_part_scanner', 'ai_auto_print',
     'ip_library', 'blueprints', 'partners', 'oem_portal',
     'digital_inventory', 'physical_inventory', 'centers', 'peer_printers', 'shipments', 'materials', 'cooperative',
     'certifications', 'authorities', 'audit',
@@ -286,6 +287,13 @@ const baseMenuSections = [
       { id: 'overview',     label: 'Overview',         icon: LayoutDashboard },
       { id: 'orders',       label: 'Orders',           icon: Package,  badge: 3 },
       { id: 'print_queue',  label: 'DRM Approval',     icon: KeyRound, badge: 5 },
+    ],
+  },
+  {
+    title: 'AI Intelligence',
+    items: [
+      { id: 'ai_part_scanner', label: 'Part Scanner', icon: Brain },
+      { id: 'ai_auto_print',   label: 'Auto-Print',   icon: Zap },
     ],
   },
   {

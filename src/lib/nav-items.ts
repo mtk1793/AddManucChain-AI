@@ -53,6 +53,10 @@ export const ALL_NAV_ITEMS: NavItem[] = [
   { id: 'print_approval', label: 'Print Approval', icon: KeyRound, section: 'Pipeline', keywords: ['approval', 'signoff'] },
   { id: 'emergency', label: 'Emergency Response', icon: AlertCircle, section: 'Pipeline', keywords: ['urgent', 'critical', 'triage'] },
 
+  // AI Intelligence (new — interview-grounded)
+  { id: 'ai_part_scanner', label: 'AI Part Scanner', icon: Brain, section: 'AI Intelligence', keywords: ['suitability', 'feasibility', 'candidate', 'roi', 'scan', 'am'] },
+  { id: 'ai_auto_print', label: 'Auto-Print Rules', icon: Zap, section: 'AI Intelligence', keywords: ['replenishment', 'trigger', 'safety stock', 'automatic'] },
+
   // Resources
   { id: 'blueprints', label: 'Blueprint Library', icon: FileBox, section: 'Resources', keywords: ['cad', 'design', 'files'] },
   { id: 'centers', label: 'Print Centers', icon: Factory, section: 'Resources', keywords: ['facility', 'facilities'] },

@@ -52,6 +52,8 @@ import {
   WorkflowAutomationBuilder,
   MobileResponsiveDashboard,
   CommandPalette,
+  PartSuitabilityScannerPage,
+  AutoPrintRulesPanel,
 } from '@/components/dashboard'
 import OneClickOrderAutomation from '@/components/OneClickOrderAutomation'
 
@@ -132,6 +134,10 @@ export default function Dashboard() {
         return { title: 'Lab & Testing Portal', subtitle: 'AM testing requests, equipment scheduling & certification reports' }
       case 'emergency':
         return { title: 'Emergency Response', subtitle: 'Fast-path from breakdown to replacement — every minute counts' }
+      case 'ai_part_scanner':
+        return { title: 'AI Part Suitability Scanner', subtitle: 'Identify which inventory parts are worth digitizing for additive manufacturing' }
+      case 'ai_auto_print':
+        return { title: 'Smart Replenishment & Auto-Print', subtitle: 'When inventory drops, the printer kicks in automatically' }
       case 'oem_portal':
         return { title: 'OEM Self-Service Portal', subtitle: 'Upload blueprints, set licensing terms, and earn passive royalty revenue' }
       case 'cooperative':
@@ -231,6 +237,10 @@ export default function Dashboard() {
         return <PrintApprovalPage role={currentRole} />
       case 'emergency':
         return <EmergencyResponsePage role={currentRole} />
+      case 'ai_part_scanner':
+        return <PartSuitabilityScannerPage />
+      case 'ai_auto_print':
+        return <AutoPrintRulesPanel />
       case 'oem_portal':
         return <OEMPortalPage role={currentRole} />
       case 'cooperative':
