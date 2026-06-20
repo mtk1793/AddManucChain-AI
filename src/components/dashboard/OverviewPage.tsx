@@ -15,6 +15,7 @@ import {
   orders, printCenters, blueprints, dashboardStats,
   physicalParts, physicalSites, inventoryTransactions,
 } from '@/lib/static-data'
+import { SystemHealthWidget } from './SystemHealthWidget'
 
 // ── tiny viz helpers ─────────────────────────────────────────────────────────
 
@@ -171,15 +172,28 @@ export function OverviewPage() {
       {/* KPI row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {kpis.map((kpi, i) => (
-          <Card key={i} className="bg-white border-slate-200">
+          <Card
+            key={i}
+            className="bg-white border-slate-200 hover:shadow-lg hover:shadow-slate-200/50 hover:-translate-y-0.5 transition-all duration-200 group overflow-hidden relative"
+          >
+            {/* Subtle gradient accent strip on top */}
+            <div
+              className="absolute top-0 left-0 right-0 h-0.5 opacity-70 group-hover:opacity-100 transition-opacity"
+              style={{ background: `linear-gradient(90deg, ${kpi.color}, transparent)` }}
+            />
             <CardContent className="p-4">
               <div className="flex items-start justify-between mb-2">
                 <div>
-                  <p className="text-[10px] text-slate-500">{kpi.title}</p>
-                  <p className="text-2xl font-bold text-[#0F172A]">{kpi.value}{kpi.suffix}</p>
+                  <p className="text-[10px] text-slate-500 font-medium uppercase tracking-wide">{kpi.title}</p>
+                  <p className="text-2xl font-bold text-[#0F172A] group-hover:scale-[1.02] origin-left transition-transform">
+                    {kpi.value}{kpi.suffix}
+                  </p>
                   <p className="text-[10px] text-slate-400">{kpi.sub}</p>
                 </div>
-                <div className="relative flex-shrink-0">
+                <div
+                  className="relative flex-shrink-0 rounded-xl p-1 transition-colors"
+                  style={{ backgroundColor: `${kpi.color}10` }}
+                >
                   <RingChart pct={kpi.ring} color={kpi.color} size={44} stroke={4} />
                   <div className="absolute inset-0 flex items-center justify-center">
                     <kpi.icon className="w-4 h-4" style={{ color: kpi.color }} />
@@ -427,6 +441,9 @@ export function OverviewPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* System Health — live API/DB probes */}
+          <SystemHealthWidget />
 
         </div>
       </div>

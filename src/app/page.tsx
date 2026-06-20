@@ -1,7 +1,7 @@
 'use client'
 
 // Dashboard for AddManuChain - v2
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   Sidebar,
   Header,
@@ -51,6 +51,7 @@ import {
   AdvancedAnalyticsDashboard,
   WorkflowAutomationBuilder,
   MobileResponsiveDashboard,
+  CommandPalette,
 } from '@/components/dashboard'
 import OneClickOrderAutomation from '@/components/OneClickOrderAutomation'
 
@@ -59,8 +60,35 @@ export default function Dashboard() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [currentRole, setCurrentRole] = useState('admin')
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
   const { showOnboarding, isLoading, completeOnboarding } = useOnboarding()
   const { tutorialSection, showTutorial, hideTutorial, isVisible: tutorialVisible } = useSectionTutorial(activeTab)
+
+  // Global keyboard shortcut: Cmd+K / Ctrl+K toggles the command palette.
+  // Also support "/" to open it when not typing in an input.
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        setCommandPaletteOpen((v) => !v)
+        return
+      }
+      if (e.key === '/' && !commandPaletteOpen) {
+        const target = e.target as HTMLElement | null
+        const tag = target?.tagName
+        if (tag !== 'INPUT' && tag !== 'TEXTAREA' && !(target?.isContentEditable)) {
+          e.preventDefault()
+          setCommandPaletteOpen(true)
+        }
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [commandPaletteOpen])
+
+  const handlePaletteNavigate = useCallback((pageId: string) => {
+    setActiveTab(pageId)
+  }, [])
 
   const getPageTitle = () => {
     switch (activeTab) {
@@ -288,6 +316,7 @@ export default function Dashboard() {
           subtitle={pageInfo.subtitle}
           onNavigate={setActiveTab}
           onTutorialClick={() => showTutorial(activeTab)}
+          onCommandPaletteTrigger={() => setCommandPaletteOpen(true)}
           mobileOpen={mobileOpen}
           setMobileOpen={setMobileOpen}
         />
@@ -298,6 +327,13 @@ export default function Dashboard() {
 
       {/* AI Assistant floating chat widget */}
       <AIAssistant role={currentRole} onNavigate={setActiveTab} />
+
+      {/* Command Palette (Cmd+K / Ctrl+K) */}
+      <CommandPalette
+        open={commandPaletteOpen}
+        onOpenChange={setCommandPaletteOpen}
+        onNavigate={handlePaletteNavigate}
+      />
     </div>
   )
 }

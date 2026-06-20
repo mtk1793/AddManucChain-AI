@@ -759,17 +759,28 @@ export async function POST(req: NextRequest) {
       const ZAIModule = await import('z-ai-web-dev-sdk')
       const ZAI = (ZAIModule as { default: { create: () => Promise<unknown> } }).default
       const zai = await ZAI.create()
-      const completion = await (zai as {
-        chat: {
-          completions: {
-            create: (opts: { messages: { role: string; content: string }[]; thinking: { type: string } }) =>
-              Promise<{ choices: { message: { content?: string } }[] }>
+
+      // Race the LLM call against a 25s timeout so the route ALWAYS responds,
+      // even if the upstream model hangs. Without this, a slow/hung LLM call
+      // would let the HTTP request hang until the client times out (HTTP 000).
+      const LLM_TIMEOUT_MS = 25_000
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('LLM_TIMEOUT')), LLM_TIMEOUT_MS),
+      )
+      const completion = await Promise.race([
+        (zai as {
+          chat: {
+            completions: {
+              create: (opts: { messages: { role: string; content: string }[]; thinking: { type: string } }) =>
+                Promise<{ choices: { message: { content?: string } }[] }>
+            }
           }
-        }
-      }).chat.completions.create({
-        messages: sdkMessages,
-        thinking: { type: 'disabled' },
-      })
+        }).chat.completions.create({
+          messages: sdkMessages,
+          thinking: { type: 'disabled' },
+        }),
+        timeoutPromise,
+      ])
       reply = completion.choices?.[0]?.message?.content ?? ''
     } catch (err) {
       console.error('AI SDK error:', err)

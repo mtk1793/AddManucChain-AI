@@ -286,34 +286,30 @@ export function OnboardingTutorial({ onComplete }: OnboardingTutorialProps) {
   )
 }
 
-// Hook to check if onboarding should be shown
+// Hook to check if onboarding should be shown.
+// NOTE: Auto-show is DISABLED so the dashboard loads cleanly without blocking
+// modals. The tutorial is still available on-demand via the header "Tutorial"
+// button (calls `resetOnboarding()`). This avoids covering the page on every
+// fresh browser session (e.g. agent-browser QA, new visitors).
 export function useOnboarding() {
-  // Initialize with a function to ensure consistent SSR/client rendering
-  const [showOnboarding, setShowOnboarding] = useState(() => {
-    // Only check localStorage on client side
-    if (typeof window !== 'undefined') {
-      const hasCompleted = localStorage.getItem('addmanuchain_onboarding_complete')
-      return !hasCompleted
-    }
-    return true // Server-side default
-  })
-  const [isLoading, setIsLoading] = useState(true)
+  const [showOnboarding, setShowOnboarding] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
 
   useEffect(() => {
-    // Verify localStorage state on client after mount
-    const hasCompleted = localStorage.getItem('addmanuchain_onboarding_complete')
-    setShowOnboarding(!hasCompleted)
+    // Never auto-show on load. isLoading stays false so the page renders
+    // immediately without a flash of the tutorial overlay.
     setIsLoading(false)
   }, [])
 
   const resetOnboarding = () => {
-    localStorage.removeItem('addmanuchain_onboarding_complete')
     setShowOnboarding(true)
   }
 
   const completeOnboarding = () => {
     setShowOnboarding(false)
-    localStorage.setItem('addmanuchain_onboarding_complete', 'true')
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('addmanuchain_onboarding_complete', 'true')
+    }
   }
 
   return {

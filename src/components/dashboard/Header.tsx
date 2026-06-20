@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Bell, Search, Plus, User, Settings, ChevronDown, X, Menu, HelpCircle } from 'lucide-react'
+import { Search, Plus, User, Settings, ChevronDown, X, Menu, HelpCircle, Command } from 'lucide-react'
 // Authentication removed - no longer importing useSession, signOut
 // import { useSession, signOut } from 'next-auth/react'
 import {
@@ -15,6 +15,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { NotificationsDropdown } from './NotificationsDropdown'
 import {
   orders,
   blueprints,
@@ -31,6 +32,7 @@ interface HeaderProps {
   }
   onNavigate?: (tab: string) => void
   onTutorialClick?: () => void
+  onCommandPaletteTrigger?: () => void
   mobileOpen?: boolean
   setMobileOpen?: (open: boolean) => void
 }
@@ -80,7 +82,7 @@ function buildSearchIndex() {
 
 const searchIndex = buildSearchIndex()
 
-export function Header({ title, subtitle, action, onNavigate, onTutorialClick, mobileOpen, setMobileOpen }: HeaderProps) {
+export function Header({ title, subtitle, action, onNavigate, onTutorialClick, onCommandPaletteTrigger, mobileOpen, setMobileOpen }: HeaderProps) {
   // Static user data since authentication is removed
   const staticUser = {
     name: 'John Anderson',
@@ -175,6 +177,18 @@ export function Header({ title, subtitle, action, onNavigate, onTutorialClick, m
             )}
           </div>
 
+          {/* Command Palette trigger (Cmd+K) */}
+          {onCommandPaletteTrigger && (
+            <button
+              onClick={onCommandPaletteTrigger}
+              title="Open command palette (Cmd+K)"
+              className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 transition-colors text-slate-500"
+            >
+              <Command className="w-3.5 h-3.5" />
+              <span className="text-xs font-medium">K</span>
+            </button>
+          )}
+
           {/* Tutorial help button */}
           {onTutorialClick && (
             <Button
@@ -188,11 +202,8 @@ export function Header({ title, subtitle, action, onNavigate, onTutorialClick, m
             </Button>
           )}
 
-          {/* Notifications */}
-          <Button variant="ghost" size="icon" className="relative">
-            <Bell className="w-5 h-5 text-slate-600" />
-            <span className="absolute top-1 right-1 w-2 h-2 bg-[#F59E0B] rounded-full" />
-          </Button>
+          {/* Notifications dropdown (live API data) */}
+          <NotificationsDropdown />
 
           {/* Primary Action */}
           {action && (

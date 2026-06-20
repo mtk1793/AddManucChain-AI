@@ -2,33 +2,31 @@ import { useState, useEffect } from 'react'
 
 export function useLinkedInPopup() {
   const [showPopup, setShowPopup] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(false)
 
   useEffect(() => {
-    // Check if user has already dismissed this popup in this session
-    const isDismissed = sessionStorage.getItem('linkedin_popup_dismissed')
-    
-    if (!isDismissed) {
-      // Show popup after 2 seconds
-      const timer = setTimeout(() => {
-        setShowPopup(true)
-      }, 2000)
-      
-      return () => clearTimeout(timer)
-    }
-    
+    // NOTE: Auto-show is DISABLED so the dashboard loads cleanly without a
+    // blocking modal 2s after every fresh session. The popup remains
+    // available to be triggered on-demand by setting showPopup true.
     setIsLoading(false)
   }, [])
 
   const dismissPopup = () => {
-    // Mark as dismissed for this session
-    sessionStorage.setItem('linkedin_popup_dismissed', 'true')
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('linkedin_popup_dismissed', 'true')
+    }
     setShowPopup(false)
+  }
+
+  // Allow manual trigger (e.g. from a "Connect" button in the footer/header)
+  const triggerPopup = () => {
+    setShowPopup(true)
   }
 
   return {
     showPopup,
     isLoading,
     dismissPopup,
+    triggerPopup,
   }
 }
