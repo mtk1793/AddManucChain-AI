@@ -1,0 +1,594 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  // SQLite for local dev; switch to postgresql for production
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  password      String?
+  image         String?
+  role          String    @default("operator") // admin, customer_admin, operator, oem_partner, print_center, cert_authority
+  company       String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  accounts      Account[]
+  sessions      Session[]
+  orders        Order[]   @relation("UserOrders")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+  @@unique([identifier, token])
+}
+
+model Blueprint {
+  id            String   @id @default(cuid())
+  blueprintId   String   @unique // e.g., BP-1024
+  name          String
+  category      String
+  material      String
+  oem           String
+  certification String
+  status        String   @default("active") // active, pending_review, inactive
+  printCount    Int      @default(0)
+  description   String?
+  filePath      String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  orders        Order[]
+}
+
+model PrintCenter {
+  id             String   @id @default(cuid())
+  centerId       String   @unique // e.g., PC-001
+  name           String
+  location       String
+  status         String   @default("online") // online, busy, offline
+  certification  String
+  totalPrinters  Int
+  activePrinters Int      @default(0)
+  capacity       Int      @default(0) // percentage
+  currentJobs    Int      @default(0)
+  completedToday Int      @default(0)
+  contactName    String
+  contactEmail   String
+  materials      String   // JSON array of materials
+  specialties    String   // JSON array of specialties
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  orders         Order[]
+  materialStocks MaterialStock[]
+}
+
+model Order {
+  id            String      @id @default(cuid())
+  orderId       String      @unique // e.g., ORD-2847
+  partName      String
+  status        String      @default("pending") // pending, printing, quality_check, shipped, delivered
+  priority      String      @default("medium") // low, medium, high
+  quantity      Int         @default(1)
+  eta           DateTime?
+  notes         String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  requesterId   String
+  requester     User        @relation("UserOrders", fields: [requesterId], references: [id])
+  blueprintId   String?
+  blueprint     Blueprint?  @relation(fields: [blueprintId], references: [id])
+  centerId      String?
+  center        PrintCenter? @relation(fields: [centerId], references: [id])
+  shipment      Shipment?
+  auditLogs     AuditLog[]
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  orderId     String
+  order       Order    @relation(fields: [orderId], references: [id])
+  action      String
+  details     String?
+  userId      String?
+  createdAt   DateTime @default(now())
+}
+
+model Shipment {
+  id                String   @id @default(cuid())
+  trackingId        String   @unique
+  orderId           String   @unique
+  order             Order    @relation(fields: [orderId], references: [id])
+  status            String   @default("preparing") // preparing, in_transit, out_for_delivery, delivered, delayed
+  origin            String
+  destination       String
+  carrier           String
+  estimatedDelivery DateTime
+  actualDelivery    DateTime?
+  distance          Int      @default(0)
+  progress          Int      @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model Partner {
+  id          String   @id @default(cuid())
+  name        String
+  email       String
+  phone       String
+  type        String   // OEM, Integrator, Distributor, Service Provider
+  status      String   @default("pending") // active, pending, inactive
+  address     String
+  notes       String?
+  blueprints  Int      @default(0)
+  totalPrints Int      @default(0)
+  revenue     Int      @default(0)
+  joinedDate  DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Material {
+  id           String   @id @default(cuid())
+  name         String
+  category     String
+  totalStock   Int      @default(0)
+  unit         String   @default("kg")
+  minStock     Int      @default(0)
+  maxStock     Int      @default(0)
+  reorderPoint Int      @default(0)
+  status       String   @default("adequate") // adequate, low, critical
+  unitCost     Int      @default(0)
+  leadTime     Int      @default(0) // days
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  stocks       MaterialStock[]
+}
+
+model MaterialStock {
+  id         String   @id @default(cuid())
+  materialId String
+  material   Material @relation(fields: [materialId], references: [id])
+  centerId   String
+  center     PrintCenter @relation(fields: [centerId], references: [id])
+  stock      Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Certification {
+  id          String   @id @default(cuid())
+  name        String
+  type        String
+  issuer      String
+  holder      String
+  status      String   @default("active") // active, pending, expiring_soon, expired
+  issueDate   DateTime
+  expiryDate  DateTime
+  scope       String
+  documentUrl String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model DashboardStats {
+  id              String   @id @default(cuid())
+  totalOrders     Int      @default(0)
+  activeOrders    Int      @default(0)
+  deliveredParts  Int      @default(0)
+  avgLeadTime     Float    @default(0)
+  costSavings     Int      @default(0)
+  totalBlueprints Int      @default(0)
+  activeCenters   Int      @default(0)
+  updatedAt       DateTime @updatedAt
+}
+
+model CertificationAuthority {
+  id              String   @id @default(cuid())
+  authorityId     String   @unique
+  name            String
+  acronym         String
+  type            String   // Marine, Aerospace, Oil & Gas, ISO
+  contactEmail    String
+  contactPhone    String
+  specializations String   // JSON array
+  approvedParts   Int      @default(0)
+  averageLeadTime Int      @default(0) // days
+  websiteUrl      String?
+  status          String   @default("active") // active, inactive
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  requests        CertificationRequest[]
+}
+
+model CertificationRequest {
+  id            String   @id @default(cuid())
+  requestId     String   @unique
+  blueprintId   String
+  authorityId   String
+  authority     CertificationAuthority @relation(fields: [authorityId], references: [id])
+  status        String   @default("submitted") // submitted, under_review, approved, rejected
+  submittedDate DateTime @default(now())
+  reviewedDate  DateTime?
+  notes         String?
+  documentUrl   String?
+  reviewerName  String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model CustomerEngagement {
+  id                    String   @id @default(cuid())
+  customerId            String   @unique
+  customerName          String
+  industry              String
+  phase                 String   @default("assessment") 
+  // assessment, adoption, integration, training, maintenance
+  assessmentDate        DateTime?
+  adoptionDate          DateTime?
+  integrationDate       DateTime?
+  trainingDate          DateTime?
+  maintenanceStartDate  DateTime?
+  accountManager        String
+  healthScore           Int      @default(0) // 0-100
+  rigCount              Int      @default(0)
+  notes                 String?
+  status                String   @default("active") // active, paused, completed
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  trainingSessions      TrainingSession[]
+}
+
+model TrainingSession {
+  id           String   @id @default(cuid())
+  sessionId    String   @unique
+  customerId   String
+  customer     CustomerEngagement @relation(fields: [customerId], references: [id])
+  title        String
+  type         String   // Operation, Maintenance, Quality Control, Safety
+  scheduledDate DateTime
+  duration     Int      // minutes
+  trainer      String
+  location     String
+  attendees    String   // JSON array
+  status       String   @default("scheduled") // scheduled, completed, cancelled
+  materials    String?  // Links to training materials
+  feedback     String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model ComparativeMetrics {
+  id                        String   @id @default(cuid())
+  customerId                String
+  metricMonth               DateTime
+  traditionalLeadTime       Int      // days
+  almatechLeadTime          Int      // days
+  leadTimeReduction         Float    // percentage
+  traditionalWarehouseCost  Int      // dollars
+  almatechWarehouseCost     Int      // dollars
+  warehouseSavings          Float    // percentage
+  partsRepaired             Int      @default(0)
+  partsReplaced             Int      @default(0)
+  designIterations          Int      @default(0) // custom designs enabled
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+}
+
+model EnvironmentalImpact {
+  id                  String   @id @default(cuid())
+  orderId             String   @unique
+  co2SavedKg          Float    @default(0)
+  milesAvoided        Int      @default(0)
+  transportMethod     String?  // helicopter, vessel, truck
+  wasteReduced        Float    @default(0) // kg
+  calculationMethod   String?
+  createdAt           DateTime @default(now())
+}
+
+model BlueprintVersion {
+  id            String   @id @default(cuid())
+  blueprintId   String
+  version       String
+  changes       String?
+  reason        String?
+  approvedBy    String?
+  approvedDate  DateTime?
+  filePath      String
+  performanceData String? // JSON
+  status        String   @default("draft") // draft, approved, deprecated
+  createdAt     DateTime @default(now())
+}
+
+model CustomizationRequest {
+  id              String   @id @default(cuid())
+  requestId       String   @unique
+  blueprintId     String
+  requesterId     String
+  requesterName   String
+  description     String
+  justification   String?
+  status          String   @default("pending") // pending, approved, rejected, implemented
+  estimatedCost   Int?
+  estimatedTime   Int?     // days
+  assignedTo      String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// PHASE 3: Enhanced Reporting & Export
+model Report {
+  id              String   @id @default(cuid())
+  reportId        String   @unique
+  type            String   // orders, analytics, compliance, cost_analysis, operational
+  title           String
+  description     String?
+  format          String   @default("pdf") // pdf, excel, csv
+  generatedBy     String
+  filters         String?  // JSON
+  data            String?  // JSON - actual report data
+  fileUrl         String?
+  status          String   @default("generating") // generating, ready, failed
+  resultCount     Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// PHASE 3: Real-time Notifications
+model Notification {
+  id              String   @id @default(cuid())
+  userId          String
+  type            String   // order_status, approval_needed, risk_alert, system_alert, integration_error
+  title           String
+  message         String
+  severity        String   @default("info") // info, warning, error, critical
+  relatedOrderId  String?
+  relatedEntity   String?  // JSON - additional context
+  read            Boolean  @default(false)
+  readAt          DateTime?
+  actionUrl       String?
+  createdAt       DateTime @default(now())
+  @@index([userId])
+  @@index([read])
+}
+
+// PHASE 3: Advanced Search & Filtering
+model SavedFilter {
+  id              String   @id @default(cuid())
+  userId          String
+  name            String
+  description     String?
+  entityType      String   // order, blueprint, center, report
+  filters         String   // JSON - filter criteria
+  sortBy          String?
+  isPublic        Boolean  @default(false)
+  usageCount      Int      @default(0)
+  lastUsed        DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  @@index([userId])
+}
+
+model SearchLog {
+  id              String   @id @default(cuid())
+  userId          String
+  query           String
+  entityType      String
+  filters         String?  // JSON
+  resultCount     Int      @default(0)
+  executionTime   Int      @default(0) // milliseconds
+  createdAt       DateTime @default(now())
+}
+
+// PHASE 3: Batch Operations
+model BatchJob {
+  id              String   @id @default(cuid())
+  jobId           String   @unique
+  userId          String
+  operation       String   // update_status, export, approve, assign, cancel
+  entityType      String   // order, blueprint
+  itemCount       Int
+  completedCount  Int      @default(0)
+  failedCount     Int      @default(0)
+  status          String   @default("pending") // pending, processing, completed, failed, cancelled
+  parameters      String   // JSON - operation parameters
+  errors          String?  // JSON - array of errors
+  progress        Int      @default(0) // 0-100
+  startedAt       DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// PHASE 3: Third-party Integration
+model IntegrationConfig {
+  id              String   @id @default(cuid())
+  name            String
+  type            String   // erp, inventory, payment, crm, shipping, analytics
+  apiEndpoint     String
+  apiKey          String   // encrypted
+  status          String   @default("inactive") // active, inactive, error
+  lastSyncAt      DateTime?
+  lastErrorAt     DateTime?
+  lastErrorMsg    String?
+  config          String   // JSON - provider-specific config
+  webhookUrl      String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model IntegrationLog {
+  id              String   @id @default(cuid())
+  integrationId   String
+  operation       String   // sync, push, pull, webhook
+  status          String   // success, failed, partial
+  recordsProcessed Int
+  recordsFailed   Int
+  errorMessage    String?
+  requestData     String?  // JSON - first 1000 chars
+  responseData    String?  // JSON - first 1000 chars
+  executionTime   Int      // milliseconds
+  createdAt       DateTime @default(now())
+}
+
+// PHASE 3: Workflow Builder
+model Workflow {
+  id              String   @id @default(cuid())
+  workflowId      String   @unique
+  name            String
+  description     String?
+  entityType      String   // order, blueprint, approval
+  trigger         String   // manual, automatic, scheduled
+  triggerCondition String? // JSON - conditions
+  isActive        Boolean  @default(true)
+  createdBy       String
+  steps           WorkflowStep[]
+  executions      WorkflowExecution[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model WorkflowStep {
+  id              String   @id @default(cuid())
+  workflowId      String
+  workflow        Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  stepOrder       Int
+  action          String   // send_notification, update_status, create_task, call_api, assign_to
+  parameters      String   // JSON
+  onSuccess       String?  // next step ID or null for end
+  onFailure       String?  // next step ID or null for end
+  retryCount      Int      @default(0)
+  timeout         Int?     // seconds
+  createdAt       DateTime @default(now())
+  @@unique([workflowId, stepOrder])
+}
+
+model WorkflowExecution {
+  id              String   @id @default(cuid())
+  workflowId      String
+  workflow        Workflow @relation(fields: [workflowId], references: [id])
+  entityId        String   // the ID of the entity being processed
+  status          String   @default("running") // running, completed, failed, cancelled
+  currentStep     Int      @default(1)
+  log             String?  // JSON - execution log
+  startedAt       DateTime @default(now())
+  completedAt     DateTime?
+}
+
+// PHASE 3: Predictive Analytics
+model PredictionModel {
+  id              String   @id @default(cuid())
+  modelId         String   @unique
+  name            String
+  type            String   // demand, lead_time, risk, cost, efficiency
+  description     String?
+  version         String
+  accuracy        Float?   // 0-100
+  inputs          String   // JSON - feature names and types
+  config          String   // JSON - model hyperparameters
+  trainedAt       DateTime?
+  lastUsedAt      DateTime?
+  status          String   @default("inactive") // active, inactive, training, error
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Forecast {
+  id              String   @id @default(cuid())
+  modelId         String
+  forecastType    String   // demand, lead_time, risk, cost
+  period          String   // next_week, next_month, next_quarter
+  predictions     String   // JSON - array of predictions
+  confidence      Float?   // 0-100
+  baselineMetric  Float?
+  forecastedMetric Float?
+  variance        Float?
+  recommendations String?  // JSON
+  createdAt       DateTime @default(now())
+  @@index([modelId, forecastType])
+}
+
+// PHASE 3: Cost Optimization
+model CostOptimization {
+  id              String   @id @default(cuid())
+  optimizationId  String   @unique
+  type            String   // material_consolidation, route_optimization, capacity_planning, waste_reduction
+  targetEntity    String   // order, center, batch
+  targetEntityId  String
+  currentCost     Float
+  estimatedSavings Float
+  recommendations String   // JSON - array of optimization suggestions
+  implementation  String?  // JSON - implementation details
+  status          String   @default("pending") // pending, approved, implementing, completed, rejected
+  approvedBy      String?
+  approvedAt      DateTime?
+  completedAt     DateTime?
+  actualSavings   Float?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model OptimizationSuggestion {
+  id              String   @id @default(cuid())
+  suggestionId    String   @unique
+  category        String   // material, route, capacity, waste, timing
+  priority        String   @default("medium") // low, medium, high, critical
+  description     String
+  potentialSavings Float
+  implementationDifficulty String // easy, medium, hard
+  timeToImplement Int      // hours
+  affectedEntities String  // JSON - IDs of affected orders/centers
+  status          String   @default("suggested") // suggested, under_review, implemented, rejected
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// Mobile-specific config
+model MobileConfig {
+  id              String   @id @default(cuid())
+  userId          String
+  compactView     Boolean  @default(true)
+  darkMode        Boolean  @default(false)
+  pushNotifications Boolean @default(true)
+  offlineMode     Boolean  @default(false)
+  refreshInterval Int      @default(30) // seconds
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
