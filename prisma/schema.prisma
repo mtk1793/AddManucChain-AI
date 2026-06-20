@@ -592,3 +592,135 @@ model MobileConfig {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }
+
+// ─── PHASE 4: Workforce Knowledge & Memory ───────────────────────────────────
+//
+// Grounded in customer interviews:
+//   • Jim Granger, MAN Energy #23: "The real power [of AI] is that lack of
+//     technical expertise… It's not like 30 years ago where there was always one
+//     person who knew everything. Those guys are gone."
+//   • Jordan Cumming #10: "Knowledge Capture / Workforce Memory… critical
+//     assembly procedures were never documented because they existed only in the
+//     heads of experienced technicians who had retired or passed away." — named
+//     the highest immediate value signal.
+//   • Dean Dalpe, Enbridge #64: smart-manuals use case — "data interpretation,
+//     not decision-making."
+//
+// Employees capture both senior (retiring) experts and junior (new) hires so the
+// platform can transfer institutional knowledge from one generation to the next.
+
+model Employee {
+  id              String   @id @default(cuid())
+  employeeId      String   @unique // e.g., EMP-001
+  name            String
+  email           String   @unique
+  phone           String?
+  title           String   // e.g., "Senior Additive Manufacturing Technician"
+  department      String   // Engineering, Operations, Quality, Maintenance, Field Service
+  seniority       String   @default("mid") // junior, mid, senior, retiring
+  hireDate        DateTime
+  retirementDate  DateTime? // populated for retiring employees
+  yearsExperience Int      @default(0)
+  status          String   @default("active") // active, departing, retired
+  specialties     String   // JSON array — e.g., ["SLM titanium","welding inspection","marine cert"]
+  certifications  String?  // JSON array — e.g., ["CSWIP 3.1","API 510"]
+  bio             String?
+  mentorId        String?  // optional link to a mentor Employee
+  mentor          Employee? @relation("Mentorship", fields: [mentorId], references: [id])
+  mentees         Employee[] @relation("Mentorship")
+  avatarColor     String   @default("#0EA5E9") // for the avatar fallback
+  knowledgeDocs   KnowledgeDocument[] @relation("DocAuthor")
+  transfersFrom   KnowledgeTransfer[] @relation("TransferFrom")
+  transfersTo     KnowledgeTransfer[] @relation("TransferTo")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model KnowledgeDocument {
+  id              String   @id @default(cuid())
+  documentId      String   @unique // e.g., KD-001
+  title           String
+  category        String   // sop, lesson_learned, troubleshooting, procedure, safety_bulletin, case_study
+  authorId        String
+  author          Employee @relation("DocAuthor", fields: [authorId], references: [id])
+  summary         String
+  content         String   // full markdown body
+  tags            String   // JSON array — searchable keywords
+  equipmentTags   String?  // JSON array — e.g., ["thruster","hydraulic valve","heat exchanger"]
+  criticality     String   @default("standard") // standard, important, critical
+  viewCount       Int      @default(0)
+  helpfulCount    Int      @default(0)
+  status          String   @default("published") // draft, published, archived
+  publishedAt     DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  transfers       KnowledgeTransfer[]
+}
+
+model KnowledgeTransfer {
+  id              String   @id @default(cuid())
+  transferId      String   @unique // e.g., KT-001
+  fromEmployeeId  String
+  fromEmployee    Employee @relation("TransferFrom", fields: [fromEmployeeId], references: [id])
+  toEmployeeId    String
+  toEmployee      Employee @relation("TransferTo", fields: [toEmployeeId], references: [id])
+  documentId      String?
+  document        KnowledgeDocument? @relation(fields: [documentId], references: [id])
+  type            String   // mentorship, handover, training_session, q_and_a
+  status          String   @default("pending") // pending, in_progress, completed
+  scheduledDate   DateTime?
+  completedDate   DateTime?
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// ─── PHASE 4: AI Agent + Smart Inventory audit trail ─────────────────────────
+//
+// Every action the autonomous AI agent takes (or suggests) is recorded so
+// operators can audit what the AI did, why, and with what confidence.
+
+model AgentActionLog {
+  id              String   @id @default(cuid())
+  actionId        String   @unique // e.g., ACT-001
+  sessionId       String   // groups actions from one user request
+  request         String   // the original natural-language request
+  intent          String   // parsed intent: create_order, adjust_inventory, trigger_print, answer_question, generate_onboarding, etc.
+  tool            String   // which tool the agent invoked
+  confidence      Float    @default(0) // 0–1
+  autoExecuted    Boolean  @default(false) // true = acted without approval
+  requiresApproval Boolean @default(false)
+  status          String   @default("suggested") // suggested, approved, executed, rejected, failed
+  reasoning       String?  // JSON — the agent's explanation
+  parameters      String?  // JSON — what the agent passed to the tool
+  result          String?  // JSON — what the tool returned
+  errorMessage    String?
+  requestedBy     String?  // user email or "ai_agent"
+  approvedBy      String?
+  executedAt      DateTime?
+  createdAt       DateTime @default(now())
+  @@index([sessionId])
+  @@index([status])
+}
+
+// Smart-inventory-specific decisions (a typed view over inventory actions the AI
+// proposed or took, for the audit log on the inventory console).
+model InventoryAiDecision {
+  id              String   @id @default(cuid())
+  decisionId      String   @unique // e.g., INV-AI-001
+  partId          String   // physical part id (from static-data) or material id
+  partName        String
+  siteName        String
+  action          String   // reorder, transfer_surplus, flag_slow_mover, condemn, digitize_for_am, safety_stock_adjust
+  currentQty      Int
+  suggestedQty    Int?
+  reasoning       String
+  confidence      Float    @default(0)
+  estImpact       String?  // e.g., "Avoids 3-day downtime risk"
+  status          String   @default("suggested") // suggested, approved, executed, rejected
+  source          String   @default("ai") // ai, manual
+  approvedBy      String?
+  executedAt      DateTime?
+  createdAt       DateTime @default(now())
+  @@index([status])
+}

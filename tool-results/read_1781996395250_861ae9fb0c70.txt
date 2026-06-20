@@ -1,0 +1,808 @@
+     1→import { NextRequest, NextResponse } from 'next/server'
+     2→
+     3→const ANTHROPIC_API_KEY = process.env.OPENROUTER_API_KEY || process.env.ANTHROPIC_API_KEY
+     4→
+     5→// ─── Rate limiter — 20 req/min per IP ─────────────────────────────────────────
+     6→const rateLimitMap = new Map<string, { count: number; resetAt: number }>()
+     7→function checkRateLimit(ip: string): boolean {
+     8→  const now = Date.now()
+     9→  const entry = rateLimitMap.get(ip)
+    10→  if (!entry || now > entry.resetAt) {
+    11→    rateLimitMap.set(ip, { count: 1, resetAt: now + 60_000 })
+    12→    return true
+    13→  }
+    14→  if (entry.count >= 20) return false
+    15→  entry.count++
+    16→  return true
+    17→}
+    18→
+    19→// ─── Tool definitions (OpenAI format — used by AgentRouter) ────────────────────
+    20→
+    21→const TOOLS = [
+    22→  {
+    23→    type: 'function',
+    24→    function: {
+    25→      name: 'navigate_to_page',
+    26→      description: 'Navigate the user to a specific page in the AddManuChain dashboard.',
+    27→      parameters: {
+    28→        type: 'object',
+    29→        properties: {
+    30→          page: {
+    31→            type: 'string',
+    32→            enum: [
+    33→              'overview', 'orders', 'print_queue', 'blueprints', 'centers',
+    34→              'peer_printers', 'shipments', 'materials', 'partners', 'analytics',
+    35→              'audit', 'certifications', 'authorities', 'services',
+    36→              'digital_inventory', 'physical_inventory', 'ip_library', 'lab_portal', 'settings',
+    37→              'emergency', 'oem_portal', 'cooperative', 'material_properties', 'feasibility', 'sc_intelligence',
+    38→            ],
+    39→            description: 'The page ID to navigate to',
+    40→          },
+    41→        },
+    42→        required: ['page'],
+    43→      },
+    44→    },
+    45→  },
+    46→  {
+    47→    type: 'function',
+    48→    function: {
+    49→      name: 'get_dashboard_stats',
+    50→      description: 'Fetch live KPI stats from the dashboard: active orders, delivered, lead time, cost savings, etc.',
+    51→      parameters: { type: 'object', properties: {} },
+    52→    },
+    53→  },
+    54→  {
+    55→    type: 'function',
+    56→    function: {
+    57→      name: 'list_orders',
+    58→      description: 'List orders from the system, optionally filtered by status or priority.',
+    59→      parameters: {
+    60→        type: 'object',
+    61→        properties: {
+    62→          status: {
+    63→            type: 'string',
+    64→            description: 'Filter by order status: pending, printing, qc, shipped, delivered',
+    65→          },
+    66→          limit: {
+    67→            type: 'number',
+    68→            description: 'Max number of orders to return (default 5)',
+    69→          },
+    70→        },
+    71→      },
+    72→    },
+    73→  },
+    74→  {
+    75→    type: 'function',
+    76→    function: {
+    77→      name: 'list_blueprints',
+    78→      description: 'List blueprints from the vault, optionally filtered by status or category.',
+    79→      parameters: {
+    80→        type: 'object',
+    81→        properties: {
+    82→          status: {
+    83→            type: 'string',
+    84→            description: 'Filter by status: active, pending_review, inactive, archived',
+    85→          },
+    86→          limit: {
+    87→            type: 'number',
+    88→            description: 'Max number to return (default 5)',
+    89→          },
+    90→        },
+    91→      },
+    92→    },
+    93→  },
+    94→  {
+    95→    type: 'function',
+    96→    function: {
+    97→      name: 'create_order',
+    98→      description: 'Create a new print order in the system on behalf of the user.',
+    99→      parameters: {
+   100→        type: 'object',
+   101→        properties: {
+   102→          partName: {
+   103→            type: 'string',
+   104→            description: 'Name of the part to print',
+   105→          },
+   106→          priority: {
+   107→            type: 'string',
+   108→            enum: ['low', 'normal', 'high', 'urgent'],
+   109→            description: 'Order priority level',
+   110→          },
+   111→          quantity: {
+   112→            type: 'number',
+   113→            description: 'Number of parts to print',
+   114→          },
+   115→          notes: {
+   116→            type: 'string',
+   117→            description: 'Additional notes or instructions for the order',
+   118→          },
+   119→        },
+   120→        required: ['partName', 'priority', 'quantity'],
+   121→      },
+   122→    },
+   123→  },
+   124→  {
+   125→    type: 'function',
+   126→    function: {
+   127→      name: 'list_materials',
+   128→      description: 'List material inventory levels at print centers, optionally filtered by stock status.',
+   129→      parameters: {
+   130→        type: 'object',
+   131→        properties: {
+   132→          status: {
+   133→            type: 'string',
+   134→            description: 'Filter by stock status: adequate, low, critical',
+   135→          },
+   136→        },
+   137→      },
+   138→    },
+   139→  },
+   140→  {
+   141→    type: 'function',
+   142→    function: {
+   143→      name: 'list_certifications',
+   144→      description: 'List active certifications and their expiry status.',
+   145→      parameters: {
+   146→        type: 'object',
+   147→        properties: {
+   148→          status: {
+   149→            type: 'string',
+   150→            description: 'Filter by status: active, pending, expiring_soon, expired',
+   151→          },
+   152→        },
+   153→      },
+   154→    },
+   155→  },
+   156→  {
+   157→    type: 'function',
+   158→    function: {
+   159→      name: 'get_risk_scores',
+   160→      description: 'Get top at-risk parts from digital inventory with risk scores > 70.',
+   161→      parameters: {
+   162→        type: 'object',
+   163→        properties: {
+   164→          threshold: {
+   165→            type: 'number',
+   166→            description: 'Risk score threshold (default 70). Return parts above this threshold.',
+   167→          },
+   168→          limit: {
+   169→            type: 'number',
+   170→            description: 'Max number of parts to return (default 5)',
+   171→          },
+   172→        },
+   173→      },
+   174→    },
+   175→  },
+   176→  {
+   177→    type: 'function',
+   178→    function: {
+   179→      name: 'predict_stockout',
+   180→      description: 'Predict days until stockout for a material at a specific print center.',
+   181→      parameters: {
+   182→        type: 'object',
+   183→        properties: {
+   184→          material: {
+   185→            type: 'string',
+   186→            description: 'Material name (e.g., Ti-6Al-4V, Inconel 625, 316L SS)',
+   187→          },
+   188→          center_id: {
+   189→            type: 'string',
+   190→            description: 'Print center ID to check stock at',
+   191→          },
+   192→        },
+   193→        required: ['material', 'center_id'],
+   194→      },
+   195→    },
+   196→  },
+   197→  {
+   198→    type: 'function',
+   199→    function: {
+   200→      name: 'route_order',
+   201→      description: 'Get optimal print center recommendation for a blueprint based on capacity, certification, and proximity.',
+   202→      parameters: {
+   203→        type: 'object',
+   204→        properties: {
+   205→          blueprint_id: {
+   206→            type: 'string',
+   207→            description: 'Blueprint ID to route',
+   208→          },
+   209→        },
+   210→        required: ['blueprint_id'],
+   211→      },
+   212→    },
+   213→  },
+   214→  {
+   215→    type: 'function',
+   216→    function: {
+   217→      name: 'get_emergency_options',
+   218→      description: 'Get emergency response triage options for a part description (identify part, suggest print center, estimate ETA).',
+   219→      parameters: {
+   220→        type: 'object',
+   221→        properties: {
+   222→          part_description: {
+   223→            type: 'string',
+   224→            description: 'Natural language description of the failed part or needed item',
+   225→          },
+   226→        },
+   227→        required: ['part_description'],
+   228→      },
+   229→    },
+   230→  },
+   231→  {
+   232→    type: 'function',
+   233→    function: {
+   234→      name: 'get_cert_renewals',
+   235→      description: 'Get list of certifications expiring soon, prioritized by impact.',
+   236→      parameters: {
+   237→        type: 'object',
+   238→        properties: {
+   239→          days_ahead: {
+   240→            type: 'number',
+   241→            description: 'Days ahead to scan for expiries (default 30)',
+   242→          },
+   243→        },
+   244→      },
+   245→    },
+   246→  },
+   247→  {
+   248→    type: 'function',
+   249→    function: {
+   250→      name: 'list_audit_summaries',
+   251→      description: 'Get compliance audit summary for a date range and regulatory standard.',
+   252→      parameters: {
+   253→        type: 'object',
+   254→        properties: {
+   255→          date_range_days: {
+   256→            type: 'number',
+   257→            description: 'Number of days to look back (default 90)',
+   258→          },
+   259→          standard: {
+   260→            type: 'string',
+   261→            description: 'Regulatory standard (DNV, ABS, Lloyd\'s, ISO9001)',
+   262→          },
+   263→        },
+   264→      },
+   265→    },
+   266→  },
+   267→]
+   268→
+   269→// ─── System prompt ─────────────────────────────────────────────────────────────
+   270→
+   271→const SYSTEM_PROMPT = `You are the AddManuChain AI Assistant — an agentic, friendly expert embedded inside the AddManuChain digital supply chain dashboard for the offshore oil & gas and heavy industry sector.
+   272→
+   273→You are NOT just a Q&A bot. You can take real actions inside the dashboard using your tools:
+   274→- Navigate the user to any page instantly
+   275→- Fetch live data (orders, blueprints, materials, certifications, stats)
+   276→- Create new orders on behalf of the user
+   277→
+   278→Always prefer taking action over just describing how to do something. For example:
+   279→- If the user says "show me the orders page" → call navigate_to_page("orders")
+   280→- If the user asks "how many pending orders?" → call list_orders({ status: "pending" }) and report the actual count
+   281→- If the user says "create an order for a valve" → call create_order(...)
+   282→- If the user asks "what are my stats?" → call get_dashboard_stats()
+   283→
+   284→After taking an action, briefly confirm what you did and offer the next helpful step.
+   285→
+   286→---
+   287→
+   288→## DASHBOARD PAGES
+   289→
+   290→Navigation page IDs:
+   291→- overview, orders, print_queue, blueprints, centers, peer_printers, shipments, materials
+   292→- partners, analytics, audit, certifications, authorities, services (Customer Success)
+   293→- digital_inventory, physical_inventory, ip_library, lab_portal, settings
+   294→- emergency, oem_portal, cooperative, material_properties, feasibility, sc_intelligence
+   295→
+   296→## ALL PAGES — DETAILED KNOWLEDGE
+   297→
+   298→### 1. OVERVIEW — Executive KPIs (read-only): Active Orders, Parts Delivered, Avg Lead Time, Cost Savings, DRM funnel, site health, print center status, activity feed.
+   299→
+   300→### 2. ORDERS — Full order lifecycle. Create/edit/delete orders. Status: pending → printing → qc → shipped → delivered. Issue Secure Print tokens after OEM + Cert approval. Role-scoped views.
+   301→
+   302→### 3. PRINT QUEUE (DRM) — Approval pipeline. OEM grants IP license, Cert Authority verifies facility, Print Center issues token. Pipeline: Submitted → OEM Approved → Cert Verified → Token Issued.
+   303→
+   304→### 4. IP LIBRARY — OEM IP vault. License models: Restricted, Open, Pay-Per-Print, Consortium. Manage IP assets, approve license requests, track royalties and usage.
+   305→
+   306→### 5. BLUEPRINT LIBRARY — Certified CAD files (STL/STEP/3MF). Add/view/delete blueprints. Technical drawing viewer with isometric + orthographic views. Status: active/pending_review/inactive/archived.
+   307→
+   308→### 6. OEM PARTNERS — Manage OEM, integrator, distributor, service provider relationships. Track blueprints, prints, royalties per partner.
+   309→
+   310→### 7. DIGITAL INVENTORY — AI risk scoring. Interactive Canada print center map. Risk queue ranks blueprints by urgency. Quick Order for high-risk parts. AI workflow: Predict → Approve → Secure Print → Verify.
+   311→
+   312→### 8. PHYSICAL INVENTORY — Site-based inventory (rigs, vessels, yards, warehouses). Part conditions: New, Serviceable, Used, Condemned. Transfer workflows between sites.
+   313→
+   314→### 9. PRINT CENTERS — Certified AM facility network. Network tab (add/view centers) + Onsite Printing tab (configure onsite/virtual/hybrid engagements).
+   315→
+   316→### 10. PEER PRINTERS — Airbnb-style marketplace for idle certified 3D printer capacity.
+   317→
+   318→### 11. SHIPMENTS — Track deliveries. Status: preparing, in_transit, out_for_delivery, delivered, delayed. Supports offshore helicopter/sea transport.
+   319→
+   320→### 12. MATERIALS — Raw material stock. Status: adequate, low, critical. Per-center distribution. Purchase order creation for critical stock.
+   321→
+   322→### 13. CERTIFICATIONS — Cert validity tracking. Issuer, holder, validity progress bar, days remaining. Renewal workflow. Alert for certs expiring within 30 days.
+   323→
+   324→### 14. AUTHORITIES — Manage DNV GL, Lloyd's, BV, ABS, TÜV SÜD, ClassNK. Certification request approval queue.
+   325→
+   326→### 15. AUDIT LOGS — SHA-256 hash-chain compliance log. Action types: ORDER_CREATED, OEM_APPROVED, CERT_APPROVED, PRINT_TOKEN_ISSUED, PRINT_EXECUTED. Tamper detection via chain integrity verification.
+   327→
+   328→### 16. LAB PORTAL — Dalhousie AM Lab. Test types: Mechanical, Chemical, Thermal, Dimensional, NDT, Fatigue. Equipment reservation. Cert standards: DNV GL, Lloyd's, BV, ClassNK, ABS, ISO 9001.
+   329→
+   330→### 17. ANALYTICS — Monthly trends, lead time comparison (traditional 63 days vs AddManuChain), cost savings, environmental impact (CO₂, miles, waste). Role-scoped. Time range: 30d/3m/6m/1y.
+   331→
+   332→### 18. CUSTOMER SUCCESS — Trained personnel registry. Qualification levels L1–L4. Module-based training, renewal tracking, certificate downloads.
+   333→
+   334→### 19. SETTINGS — Profile, Organization, Notifications, Security (2FA), API keys, Webhooks, Tutorial restart.
+   335→
+   336→### 20. EMERGENCY RESPONSE — Fast-path from breakdown to replacement. Stats: active emergencies, avg response time (2.4 hrs), SLA rate (94%). Submit a breakdown request (part name, site, criticality level, hours available). Instant Response Panel shows: digital file status, nearest certified facility with distance and lead time, DRM fast-track status. Active Emergency Tracker shows in-progress emergencies with status timeline stepper. Typical resolution: 4–11 hrs vs 60+ days traditional.
+   337→
+   338→### 21. OEM SELF-SERVICE PORTAL — OEMs upload blueprints, set licensing terms, and earn passive royalty revenue. Revenue dashboard shows total earned ($284K), pending disbursement ($47K), projected this month ($31K). IP Asset Registry with 8 assets, royalty %, print count, earnings per asset. License Terms Builder: choose model (Pay-Per-Print, Restricted, Open, Consortium, Isolated) + set royalty % via slider. Royalty distribution settings: schedule and payment method.
+   339→
+   340→### 22. DIGITAL COOPERATIVE — Shared certified blueprint pool across member operators. Pool stats: 847 digital assets, 12 members, 234 draws/month, 98.2% replenishment rate. Three tabs: Available in Pool (10 parts with contributor, cert level, draw fee, availability), My Contributions (18 assets, $12.4K earned), Draw History (8 entries). Member directory with Gold/Silver/Bronze tiers. Join Cooperative CTA with pricing: Bronze $4,800/yr, Silver $9,600/yr, Gold $18,000/yr.
+   341→
+   342→### 23. MATERIAL PROPERTIES LIBRARY — The MMPDS equivalent for additive manufacturing. 12 validated alloys (Ti-6Al-4V LPBF, Inconel 625, 316L SS, Inconel 718 DED, H13 Tool Steel, Hastelloy C-276, 17-4PH SS, Duplex 2205, AlSi10Mg, CuCrZr, SS304, GRCop-84). Properties: yield/tensile strength (MPa), elongation (%), fatigue, hardness, density. 339 total test coupons. Validated by DNV GL, Lloyd's Register, Bureau Veritas, TÜV SÜD, ABS, ClassNK. Compare Mode: select up to 4 alloys for radar chart comparison. Data Gap Map: 5 alloys needing contribution.
+   343→
+   344→### 24. AM FEASIBILITY TRIAGE — 30-second AI verdict on whether a part is suitable for additive manufacturing. Input: part name, geometry type, material, quantity, urgency (Emergency/Planned/Exploratory), industry, part function. AI Verdict panel shows: suitability score 0–100 with colour band, plain-English verdict, 4 sub-scores (Geometry Suitability, Material Printability, Regulatory Burden, Volume Economics), cost comparison (AM $4,200 vs Traditional $18,400, 63-day lead time), nearest qualified facility, regulatory path (DNV GL, 6–8 weeks, ~$12,000). Saved Assessments table shows history with scores and outcomes.
+   345→
+   346→### 25. SUPPLY CHAIN INTELLIGENCE — Three-section intelligence dashboard: (1) Sovereignty Dashboard: pie chart showing 42% domestic AM / 31% domestic traditional / 27% foreign supply. Geopolitical risk table by supplier country (China 87/100, India 61/100, South Korea 44/100). "What If" disruption selector — choose a country and see affected parts count and AM coverage. Alert threshold slider. (2) LEAN Conversion Analysis: $4.2M carrying cost, 34 parts safe to convert to digital (saving $1.1M). Per-part confidence scores and Accept buttons — running freed capital counter updates live. (3) Pareto Working Capital Optimiser: bar chart of top 10 parts by inventory value vs AM conversion potential. Accept individual parts to free capital — top 5 conversion frees ~$743K.
+   347→
+   348→---
+   349→
+   350→## USER ROLES
+   351→
+   352→| Role | Key Pages |
+   353→|------|-----------|
+   354→| Admin | All 25 pages |
+   355→| OEM Partner | IP Library, OEM Portal, Blueprints, Print Queue, Partners, Certifications, Analytics, Material Properties, AM Feasibility, Settings |
+   356→| End User | Overview, Orders, Emergency Response, Peer Printers, Shipments, Physical Inventory, Digital Cooperative, Customer Success, Material Properties, AM Feasibility, Settings |
+   357→| Cert Authority | Overview, Print Queue, Blueprints, Certifications, Authorities, Audit Logs, Analytics, Settings |
+   358→| Lab | Overview, Lab Portal, Blueprints, Materials, Digital/Physical Inventory, Certifications, Material Properties, AM Feasibility, Analytics, Settings |
+   359→| Print Center | Overview, Orders, Print Queue, Blueprints, Materials, Digital/Physical Inventory, Emergency Response, Digital Cooperative, Shipments, Settings |
+   360→
+   361→Demo credentials: admin@almatech.com / admin123 | operator@statoil.com / operator123 | partner@oem.com / partner123
+   362→
+   363→---
+   364→
+   365→## KEY CONCEPTS
+   366→
+   367→- **DRM Token**: One-time encrypted Secure Print token, auto-expires 30s after display. Required to start printing.
+   368→- **Blueprint**: OEM-owned certified CAD file. Cert type must match print center cert for DRM approval.
+   369→- **Hash Chain**: SHA-256 linked audit log. Tampered entries break the chain (shown as red integrity banner).
+   370→- **Risk Score**: 0–100 AI score per blueprint. Factors: print history, material availability, cert restrictions, criticality.
+   371→- **Peer Printers**: Certified operators list idle printer time — like Airbnb for industrial 3D printers.
+   372→
+   373→Tone: Professional but friendly. Concise. Use bullet points for steps. Never invent features that don't exist. Always prefer taking action over just explaining.`
+   374→
+   375→const ROLE_CONTEXT: Record<string, string> = {
+   376→  admin: 'Current user: Platform Admin (Mahmoud K. — AddManuChain). Full access to all 25 pages including Emergency Response, OEM Portal, Digital Cooperative, Material Properties Library, AM Feasibility Triage, and Supply Chain Intelligence.',
+   377→  oem_partner: 'Current user: OEM Partner (Johann Weber — Wärtsilä Marine). Focus: IP Library, Blueprint Library, Print Queue, Analytics.',
+   378→  end_user: 'Current user: End User / Client (Capt. Sarah Leblanc — Horizon Maritime). Focus: Orders, Shipments, Physical Inventory.',
+   379→  cert_authority: 'Current user: Cert Authority rep (Dr. Priya Patel — DNV GL). Focus: Print Queue, Certifications, Authorities, Audit Logs.',
+   380→  print_center: 'Current user: Print Facility operator (Michael Okafor — PolyUnity NL). Focus: Print Queue, Materials, Orders, Shipments.',
+   381→  lab: 'Current user: Lab professional (Prof. Ahmad Osman — Dalhousie AM Lab). Focus: Lab Portal, Materials, Blueprints, Certifications.',
+   382→}
+   383→
+   384→// ─── Tool executor ────────────────────────────────────────────────────────────
+   385→
+   386→async function executeTool(
+   387→  name: string,
+   388→  args: Record<string, unknown>,
+   389→  baseUrl: string,
+   390→): Promise<{ result: string; frontendAction?: Record<string, unknown> }> {
+   391→
+   392→  switch (name) {
+   393→
+   394→    case 'navigate_to_page': {
+   395→      const page = args.page as string
+   396→      const labels: Record<string, string> = {
+   397→        overview: 'Dashboard Overview', orders: 'Orders', print_queue: 'Print Queue',
+   398→        blueprints: 'Blueprint Library', centers: 'Print Centers', peer_printers: 'Peer Printers',
+   399→        shipments: 'Shipments', materials: 'Materials', partners: 'OEM Partners',
+   400→        analytics: 'Analytics', audit: 'Audit Logs', certifications: 'Certifications',
+   401→        authorities: 'Certification Authorities', services: 'Customer Success',
+   402→        digital_inventory: 'Digital Inventory', physical_inventory: 'Physical Inventory',
+   403→        ip_library: 'IP Library', lab_portal: 'Lab & Testing Portal', settings: 'Settings',
+   404→        emergency: 'Emergency Response', oem_portal: 'OEM Self-Service Portal',
+   405→        cooperative: 'Digital Cooperative', material_properties: 'Material Properties Library',
+   406→        feasibility: 'AM Feasibility Triage', sc_intelligence: 'Supply Chain Intelligence',
+   407→      }
+   408→      return {
+   409→        result: `Navigated to ${labels[page] ?? page}`,
+   410→        frontendAction: { type: 'navigate', page, label: labels[page] ?? page },
+   411→      }
+   412→    }
+   413→
+   414→    case 'get_dashboard_stats': {
+   415→      try {
+   416→        const res = await fetch(`${baseUrl}/api/stats`)
+   417→        const data = await res.json()
+   418→        return { result: JSON.stringify(data) }
+   419→      } catch {
+   420→        return { result: 'Could not fetch stats at this time.' }
+   421→      }
+   422→    }
+   423→
+   424→    case 'list_orders': {
+   425→      try {
+   426→        const params = new URLSearchParams()
+   427→        if (args.status) params.set('status', args.status as string)
+   428→        const res = await fetch(`${baseUrl}/api/orders?${params}`)
+   429→        const data = await res.json()
+   430→        const orders = (Array.isArray(data) ? data : data.orders ?? [])
+   431→          .slice(0, (args.limit as number) ?? 5)
+   432→        if (orders.length === 0) return { result: 'No orders found matching the criteria.' }
+   433→        const summary = orders.map((o: Record<string, unknown>) =>
+   434→          `#${o.id ?? o.orderId} — ${o.partName ?? o.name} | Status: ${o.status} | Priority: ${o.priority} | Qty: ${o.quantity}`
+   435→        ).join('\n')
+   436→        return { result: `Found ${orders.length} order(s):\n${summary}` }
+   437→      } catch {
+   438→        return { result: 'Could not fetch orders at this time.' }
+   439→      }
+   440→    }
+   441→
+   442→    case 'list_blueprints': {
+   443→      try {
+   444→        const params = new URLSearchParams()
+   445→        if (args.status) params.set('status', args.status as string)
+   446→        const res = await fetch(`${baseUrl}/api/blueprints?${params}`)
+   447→        const data = await res.json()
+   448→        const blueprints = (Array.isArray(data) ? data : data.blueprints ?? [])
+   449→          .slice(0, (args.limit as number) ?? 5)
+   450→        if (blueprints.length === 0) return { result: 'No blueprints found matching the criteria.' }
+   451→        const summary = blueprints.map((b: Record<string, unknown>) =>
+   452→          `${b.name} | Category: ${b.category} | Material: ${b.material} | Status: ${b.status} | Prints: ${b.printCount ?? 0}`
+   453→        ).join('\n')
+   454→        return { result: `Found ${blueprints.length} blueprint(s):\n${summary}` }
+   455→      } catch {
+   456→        return { result: 'Could not fetch blueprints at this time.' }
+   457→      }
+   458→    }
+   459→
+   460→    case 'create_order': {
+   461→      try {
+   462→        const body = {
+   463→          partName: args.partName,
+   464→          priority: args.priority ?? 'normal',
+   465→          quantity: args.quantity ?? 1,
+   466→          notes: args.notes ?? '',
+   467→          status: 'pending',
+   468→        }
+   469→        const res = await fetch(`${baseUrl}/api/orders`, {
+   470→          method: 'POST',
+   471→          headers: { 'Content-Type': 'application/json' },
+   472→          body: JSON.stringify(body),
+   473→        })
+   474→        const data = await res.json()
+   475→        const id = data.id ?? data.orderId ?? 'NEW'
+   476→        return {
+   477→          result: `Order created successfully. ID: ${id}, Part: ${args.partName}, Priority: ${args.priority}, Qty: ${args.quantity}`,
+   478→          frontendAction: {
+   479→            type: 'created',
+   480→            entity: 'order',
+   481→            label: `Order created: ${args.partName} (${args.priority} priority)`,
+   482→            id,
+   483→          },
+   484→        }
+   485→      } catch {
+   486→        return { result: 'Could not create order at this time.' }
+   487→      }
+   488→    }
+   489→
+   490→    case 'list_materials': {
+   491→      try {
+   492→        const res = await fetch(`${baseUrl}/api/materials`)
+   493→        const data = await res.json()
+   494→        let materials = Array.isArray(data) ? data : data.materials ?? []
+   495→        if (args.status) materials = materials.filter((m: Record<string, unknown>) => m.status === args.status)
+   496→        materials = materials.slice(0, 6)
+   497→        if (materials.length === 0) return { result: 'No materials found matching the criteria.' }
+   498→        const summary = materials.map((m: Record<string, unknown>) =>
+   499→          `${m.name} | Category: ${m.category} | Stock: ${m.stockLevel ?? m.currentStock} | Status: ${m.status}`
+   500→        ).join('\n')
+   501→        return { result: `Found ${materials.length} material(s):\n${summary}` }
+   502→      } catch {
+   503→        return { result: 'Could not fetch materials at this time.' }
+   504→      }
+   505→    }
+   506→
+   507→    case 'list_certifications': {
+   508→      try {
+   509→        const res = await fetch(`${baseUrl}/api/certifications`)
+   510→        const data = await res.json()
+   511→        let certs = Array.isArray(data) ? data : data.certifications ?? []
+   512→        if (args.status) certs = certs.filter((c: Record<string, unknown>) => c.status === args.status)
+   513→        certs = certs.slice(0, 6)
+   514→        if (certs.length === 0) return { result: 'No certifications found matching the criteria.' }
+   515→        const summary = certs.map((c: Record<string, unknown>) =>
+   516→          `${c.name} | Issuer: ${c.issuer} | Status: ${c.status} | Expires: ${c.expiryDate ?? 'N/A'}`
+   517→        ).join('\n')
+   518→        return { result: `Found ${certs.length} certification(s):\n${summary}` }
+   519→      } catch {
+   520→        return { result: 'Could not fetch certifications at this time.' }
+   521→      }
+   522→    }
+   523→
+   524→    case 'get_risk_scores': {
+   525→      try {
+   526→        const threshold = (args.threshold as number) ?? 70
+   527→        const limit = (args.limit as number) ?? 5
+   528→        const res = await fetch(`${baseUrl}/api/digital_inventory?risk_min=${threshold}`)
+   529→        const data = await res.json()
+   530→        let parts = Array.isArray(data) ? data : data.parts ?? []
+   531→        parts = parts.filter((p: Record<string, unknown>) => (p.riskScore as number) > threshold).slice(0, limit)
+   532→        if (parts.length === 0) return { result: `No parts found with risk score above ${threshold}.` }
+   533→        const summary = parts.map((p: Record<string, unknown>) =>
+   534→          `${p.partName} (ID: ${p.id}) | Risk: ${p.riskScore}/100 | Lead Time: ${p.leadTimeDays}d | Stock: ${p.currentStock}/${p.minStock}`
+   535→        ).join('\n')
+   536→        return { result: `Top at-risk parts (threshold ${threshold}):\n${summary}` }
+   537→      } catch {
+   538→        return { result: 'Could not fetch risk scores at this time.' }
+   539→      }
+   540→    }
+   541→
+   542→    case 'predict_stockout': {
+   543→      try {
+   544→        const material = args.material as string
+   545→        const centerId = args.center_id as string
+   546→        const res = await fetch(`${baseUrl}/api/materials?name=${encodeURIComponent(material)}&center=${centerId}`)
+   547→        const data = await res.json()
+   548→        const mat = Array.isArray(data) ? data[0] : data.material
+   549→        if (!mat) return { result: `Material "${material}" not found at center ${centerId}.` }
+   550→        const daysRemaining = mat.daysUntilStockout ?? Math.ceil((mat.currentStock ?? 0) / (mat.consumptionRate ?? 1))
+   551→        return { result: `Material "${material}" at center ${centerId}: ${daysRemaining} days until stockout. Current stock: ${mat.currentStock}/${mat.safetyStock}.` }
+   552→      } catch {
+   553→        return { result: `Could not predict stockout for ${args.material}.` }
+   554→      }
+   555→    }
+   556→
+   557→    case 'route_order': {
+   558→      try {
+   559→        const blueprintId = args.blueprint_id as string
+   560→        const res = await fetch(`${baseUrl}/api/blueprints/${blueprintId}?recommend_center=true`)
+   561→        const data = await res.json()
+   562→        if (!data) return { result: `Blueprint ${blueprintId} not found.` }
+   563→        const recommended = data.recommendedCenter ?? data.optimalCenter ?? {}
+   564→        return { result: `Recommended print center for "${data.name}": ${recommended.name} (ID: ${recommended.id}) | Capacity: ${recommended.capacityPercent}% | Distance: ${recommended.distanceKm}km | ETA: ${recommended.estimatedDays}d` }
+   565→      } catch {
+   566→        return { result: `Could not route order for blueprint ${args.blueprint_id}.` }
+   567→      }
+   568→    }
+   569→
+   570→    case 'get_emergency_options': {
+   571→      try {
+   572→        const description = args.part_description as string
+   573→        const res = await fetch(`${baseUrl}/api/emergency/triage`, {
+   574→          method: 'POST',
+   575→          headers: { 'Content-Type': 'application/json' },
+   576→          body: JSON.stringify({ description }),
+   577→        })
+   578→        const data = await res.json()
+   579→        if (!data || data.error) return { result: 'Could not analyze emergency request.' }
+   580→        return { result: `Emergency Triage:\nPart Identified: ${data.partName}\nNearest Center: ${data.nearestCenter} (${data.estimatedETA}h ETA)\nCertification: ${data.certification}\n\n📋 RECOMMENDED ACTION: ${data.recommendation}` }
+   581→      } catch {
+   582→        return { result: 'Could not process emergency triage.' }
+   583→      }
+   584→    }
+   585→
+   586→    case 'get_cert_renewals': {
+   587→      try {
+   588→        const daysAhead = (args.days_ahead as number) ?? 30
+   589→        const res = await fetch(`${baseUrl}/api/certifications?expiring_in_days=${daysAhead}`)
+   590→        const data = await res.json()
+   591→        let certs = Array.isArray(data) ? data : data.certifications ?? []
+   592→        certs = certs.filter((c: Record<string, unknown>) => c.status === 'active' || c.status === 'expiring_soon')
+   593→        if (certs.length === 0) return { result: `No certifications expiring within ${daysAhead} days.` }
+   594→        const summary = certs.map((c: Record<string, unknown>) =>
+   595→          `${c.name} (${c.issuer}) | Expires: ${c.expiryDate} | Parts Dependent: ${c.partsCount ?? 0}`
+   596→        ).join('\n')
+   597→        return { result: `Certifications expiring within ${daysAhead} days:\n${summary}` }
+   598→      } catch {
+   599→        return { result: 'Could not fetch cert renewals.' }
+   600→      }
+   601→    }
+   602→
+   603→    case 'list_audit_summaries': {
+   604→      try {
+   605→        const daysBack = (args.date_range_days as number) ?? 90
+   606→        const standard = args.standard as string ?? 'DNV'
+   607→        const res = await fetch(`${baseUrl}/api/audit?days=${daysBack}&standard=${standard}`)
+   608→        const data = await res.json()
+   609→        if (!data || data.error) return { result: 'Could not generate audit summary.' }
+   610→        return { result: `Audit Summary (${standard}, last ${daysBack}d):\n${data.summary ?? 'No summary available'}` }
+   611→      } catch {
+   612→        return { result: 'Could not fetch audit summaries.' }
+   613→      }
+   614→    }
+   615→
+   616→    default:
+   617→      return { result: `Unknown tool: ${name}` }
+   618→  }
+   619→}
+   620→
+   621→
+   622→// ─── Intent detection ─────────────────────────────────────────────────────────
+   623→// Maps natural-language user messages to proactive tool calls + navigation.
+   624→// The z-ai-web-dev-sdk does not support OpenAI-style function calling, so we
+   625→// detect intent via keywords and fetch the relevant data up-front, then let the
+   626→// LLM compose a natural-language answer grounded in that live data.
+   627→
+   628→const PAGE_KEYWORDS: Record<string, string[]> = {
+   629→  overview: ['overview', 'dashboard', 'home', 'summary', 'kpi', 'kpis'],
+   630→  orders: ['order', 'orders', 'track order', 'my orders'],
+   631→  print_queue: ['print queue', 'drm', 'approval', 'approve', 'token'],
+   632→  blueprints: ['blueprint', 'blueprints', 'cad', 'part library', 'design file'],
+   633→  centers: ['print center', 'print centers', 'facility', 'facilities', 'am center'],
+   634→  peer_printers: ['peer printer', 'peer printers', 'marketplace', 'rent printer'],
+   635→  shipments: ['shipment', 'shipments', 'delivery', 'deliveries', 'tracking', 'logistics'],
+   636→  materials: ['material', 'materials', 'raw material', 'stock', 'inventory'],
+   637→  partners: ['partner', 'partners', 'oem partner', 'vendor'],
+   638→  analytics: ['analytics', 'trend', 'trends', 'insight', 'insights', 'report'],
+   639→  audit: ['audit', 'audit log', 'compliance log', 'hash chain'],
+   640→  certifications: ['certification', 'certifications', 'cert', 'certs', 'certificate'],
+   641→  authorities: ['authority', 'authorities', 'dnv', "lloyd's", 'lloyds', 'abs', 'classnk', 'bv'],
+   642→  services: ['customer success', 'training', 'onboarding', 'service'],
+   643→  digital_inventory: ['digital inventory', 'risk score', 'risk scoring', 'forecast'],
+   644→  physical_inventory: ['physical inventory', 'spare part', 'spares', 'site inventory'],
+   645→  ip_library: ['ip library', 'intellectual property', 'ip vault', 'royalty'],
+   646→  lab_portal: ['lab', 'testing', 'test coupon', 'mechanical test'],
+   647→  settings: ['setting', 'settings', 'profile', 'account', 'preference'],
+   648→  emergency: ['emergency', 'breakdown', 'failed part', 'critical failure', 'fast track'],
+   649→  oem_portal: ['oem portal', 'self service', 'self-service', 'upload blueprint'],
+   650→  cooperative: ['cooperative', 'digital cooperative', 'shared pool'],
+   651→  material_properties: ['material properties', 'mmpds', 'alloy data', 'mechanical properties'],
+   652→  feasibility: ['feasibility', 'am feasibility', 'triage', 'suitable for am', 'can it be printed'],
+   653→  sc_intelligence: ['supply chain intelligence', 'sovereignty', 'lean analysis', 'pareto', 'working capital'],
+   654→}
+   655→
+   656→function detectNavigation(message: string): { page: string; label: string } | null {
+   657→  const lower = message.toLowerCase()
+   658→  // explicit "go to" / "show me" / "open" / "navigate" phrasing
+   659→  const hasNavVerb = /\b(go to|goto|open|show me|take me to|navigate to|view|see)\b/.test(lower)
+   660→  let bestPage: string | null = null
+   661→  let bestScore = 0
+   662→  for (const [page, keywords] of Object.entries(PAGE_KEYWORDS)) {
+   663→    for (const kw of keywords) {
+   664→      if (lower.includes(kw)) {
+   665→        // longer keyword matches are more specific
+   666→        const score = kw.length
+   667→        if (score > bestScore) {
+   668→          bestScore = score
+   669→          bestPage = page
+   670→        }
+   671→      }
+   672→    }
+   673→  }
+   674→  if (!bestPage) return null
+   675→  // If there's no nav verb, only navigate on very specific single-word page mentions
+   676→  // like "show orders" / "go to analytics". For ambiguous data questions like
+   677→  // "how many orders" we still want to navigate if the user clearly wants the page.
+   678→  const labels: Record<string, string> = {
+   679→    overview: 'Dashboard Overview', orders: 'Orders', print_queue: 'Print Queue',
+   680→    blueprints: 'Blueprint Library', centers: 'Print Centers', peer_printers: 'Peer Printers',
+   681→    shipments: 'Shipments', materials: 'Materials', partners: 'OEM Partners',
+   682→    analytics: 'Analytics', audit: 'Audit Logs', certifications: 'Certifications',
+   683→    authorities: 'Certification Authorities', services: 'Customer Success',
+   684→    digital_inventory: 'Digital Inventory', physical_inventory: 'Physical Inventory',
+   685→    ip_library: 'IP Library', lab_portal: 'Lab & Testing Portal', settings: 'Settings',
+   686→    emergency: 'Emergency Response', oem_portal: 'OEM Self-Service Portal',
+   687→    cooperative: 'Digital Cooperative', material_properties: 'Material Properties Library',
+   688→    feasibility: 'AM Feasibility Triage', sc_intelligence: 'Supply Chain Intelligence',
+   689→  }
+   690→  void hasNavVerb
+   691→  return { page: bestPage, label: labels[bestPage] ?? bestPage }
+   692→}
+   693→
+   694→function detectDataFetches(message: string): string[] {
+   695→  const lower = message.toLowerCase()
+   696→  const tools: string[] = []
+   697→  if (/\b(how many|status of|list of|show|current|latest|stats?|kpi|overview|summary)\b/.test(lower) || /\border/.test(lower)) {
+   698→    if (/\border/.test(lower)) tools.push('list_orders')
+   699→  }
+   700→  if (/\bblueprint/.test(lower)) tools.push('list_blueprints')
+   701→  if (/\bmaterial/.test(lower) && /\b(stock|level|status|inventory|low|critical)\b/.test(lower)) tools.push('list_materials')
+   702→  if (/\b(certification|cert|certificate)/.test(lower)) tools.push('list_certifications')
+   703→  if (/\b(stat|kpi|overview|dashboard|metric)/.test(lower)) tools.push('get_dashboard_stats')
+   704→  return [...new Set(tools)]
+   705→}
+   706→
+   707→// ─── Route handler ─────────────────────────────────────────────────────────────
+   708→
+   709→export async function POST(req: NextRequest) {
+   710→  try {
+   711→    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
+   712→    if (!checkRateLimit(ip)) {
+   713→      return NextResponse.json({ error: 'Too many requests. Please wait before trying again.' }, { status: 429 })
+   714→    }
+   715→
+   716→    const { messages, role } = await req.json()
+   717→    if (!messages || !Array.isArray(messages)) {
+   718→      return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
+   719→    }
+   720→
+   721→    const baseUrl = new URL(req.url).origin
+   722→    const roleCtx = ROLE_CONTEXT[role ?? 'admin'] ?? ROLE_CONTEXT.admin
+   723→
+   724→    // Find the latest user message for intent detection
+   725→    const lastUser = [...messages].reverse().find((m: { role: string }) => m.role === 'user')
+   726→    const userText: string = lastUser?.content ?? ''
+   727→
+   728→    // Detect navigation + data-fetch intents
+   729→    const navIntent = detectNavigation(userText)
+   730→    const dataTools = detectDataFetches(userText)
+   731→
+   732→    // Execute data-fetch tools to ground the LLM in live data
+   733→    const contextBlocks: string[] = []
+   734→    for (const toolName of dataTools) {
+   735→      const { result } = await executeTool(toolName, {}, baseUrl)
+   736→      contextBlocks.push(`[LIVE DATA — ${toolName}]\n${result}`)
+   737→    }
+   738→
+   739→    const liveContext = contextBlocks.length
+   740→      ? `\n\n--- LIVE DASHBOARD DATA (use this when answering) ---\n${contextBlocks.join('\n\n')}\n--- END LIVE DATA ---\n`
+   741→      : ''
+   742→
+   743→    const fullSystemPrompt = `${SYSTEM_PROMPT}\n\n${roleCtx}${liveContext}\n\nIf the user asked to go to or view a specific page, you are navigating them there now${navIntent ? ` (→ ${navIntent.label})` : ''}. Mention it briefly in your reply.`
+   744→
+   745→    // Build conversation for the SDK. The SDK uses role 'assistant' for the
+   746→    // system prompt and 'user'/'assistant' for the turns.
+   747→    const sdkMessages: { role: string; content: string }[] = [
+   748→      { role: 'assistant', content: fullSystemPrompt },
+   749→      ...messages.slice(-10).map((m: { role: string; content: string }) => ({
+   750→        role: m.role === 'assistant' ? 'assistant' : 'user',
+   751→        content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content),
+   752→      })),
+   753→    ]
+   754→
+   755→    // Call the LLM via z-ai-web-dev-sdk
+   756→    let reply = ''
+   757→    try {
+   758→      // Dynamically import so the SDK (backend-only) is never pulled into client bundles
+   759→      const ZAIModule = await import('z-ai-web-dev-sdk')
+   760→      const ZAI = (ZAIModule as { default: { create: () => Promise<unknown> } }).default
+   761→      const zai = await ZAI.create()
+   762→
+   763→      // Race the LLM call against a 25s timeout so the route ALWAYS responds,
+   764→      // even if the upstream model hangs. Without this, a slow/hung LLM call
+   765→      // would let the HTTP request hang until the client times out (HTTP 000).
+   766→      const LLM_TIMEOUT_MS = 25_000
+   767→      const timeoutPromise = new Promise<never>((_, reject) =>
+   768→        setTimeout(() => reject(new Error('LLM_TIMEOUT')), LLM_TIMEOUT_MS),
+   769→      )
+   770→      const completion = await Promise.race([
+   771→        (zai as {
+   772→          chat: {
+   773→            completions: {
+   774→              create: (opts: { messages: { role: string; content: string }[]; thinking: { type: string } }) =>
+   775→                Promise<{ choices: { message: { content?: string } }[] }>
+   776→            }
+   777→          }
+   778→        }).chat.completions.create({
+   779→          messages: sdkMessages,
+   780→          thinking: { type: 'disabled' },
+   781→        }),
+   782→        timeoutPromise,
+   783→      ])
+   784→      reply = completion.choices?.[0]?.message?.content ?? ''
+   785→    } catch (err) {
+   786→      console.error('AI SDK error:', err)
+   787→      // Graceful fallback so the assistant still responds if the LLM is unavailable
+   788→      reply = navIntent
+   789→        ? `I've navigated you to ${navIntent.label}. ${dataTools.length ? 'I also pulled the latest data for you.' : "Let me know what you'd like to do next."}`
+   790→        : "I'm here to help with your AddManuChain dashboard. I can navigate you to any page, pull live order/blueprint/material data, or create new orders. What would you like to do?"
+   791→    }
+   792→
+   793→    if (!reply || !reply.trim()) {
+   794→      reply = "I'm here to help with your AddManuChain dashboard. What would you like to do?"
+   795→    }
+   796→
+   797→    const frontendAction = navIntent
+   798→      ? { type: 'navigate', page: navIntent.page, label: navIntent.label }
+   799→      : undefined
+   800→
+   801→    return NextResponse.json({ reply, frontendAction })
+   802→
+   803→  } catch (err) {
+   804→    console.error('AI chat error:', err)
+   805→    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+   806→  }
+   807→}
+   808→

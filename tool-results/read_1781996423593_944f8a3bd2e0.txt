@@ -1,0 +1,202 @@
+   200→
+   201→// ── Financial helper ─────────────────────────────────────────────────────────
+   202→// Derives a deterministic price from the order so no schema change is needed.
+   203→// Model: customer pays orderValue → 75% print centre · 15% OEM royalty · 10% platform fee
+   204→export function getOrderFinancials(order: Order) {
+   205→  const seed = order.id.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)
+   206→  const unitPrice = Math.round((1800 + (seed % 6200)) / 100) * 100   // $1 800–$8 000
+   207→  const orderValue = unitPrice * order.quantity
+   208→  return {
+   209→    orderValue,
+   210→    printCost:   Math.round(orderValue * 0.75),   // → Print Centre
+   211→    oemRoyalty:  Math.round(orderValue * 0.15),   // → OEM (IP licence fee)
+   212→    platformFee: Math.round(orderValue * 0.10),   // → AddManuChain
+   213→  }
+   214→}
+   215→
+   216→export const orders: Order[] = [
+   217→  // ORD-2847: Fully approved + token issued (printing)
+   218→  { id: 'ord-1', orderId: 'ORD-2847', partName: 'Thruster Bearing Housing', status: 'printing', priority: 'high', quantity: 2, eta: new Date(BASE_DATE + 2 * 24 * 60 * 60 * 1000).toISOString(), requesterId: 'user-1', blueprintId: 'bp-1', centerId: 'pc-1', notes: null, createdAt: new Date(BASE_DATE - 1 * 24 * 60 * 60 * 1000).toISOString(), oemApproval: { approved: true, approvedAt: new Date(BASE_DATE - 20 * 60 * 60 * 1000).toISOString(), approvedBy: 'OEM Partner (Baker Hughes)' }, certApproval: { approved: true, approvedAt: new Date(BASE_DATE - 18 * 60 * 60 * 1000).toISOString(), approvedBy: "Cert Authority (Lloyd's Register)" }, printAuthToken: 'drm-a3f8b2c1-4d5e-6f7a-8b9c-0d1e2f3a4b5c' },
+   219→  // ORD-DEMO-001: Same part name, pending both approvals - visible to all personas
+   220→  { id: 'ord-demo', orderId: 'ORD-DEMO-001', partName: 'Thruster Bearing Housing', status: 'pending', priority: 'high', quantity: 2, eta: new Date(BASE_DATE + 4 * 24 * 60 * 60 * 1000).toISOString(), requesterId: 'user-1', blueprintId: 'bp-1', centerId: 'pc-1', notes: 'Demo order - visible across all personas', createdAt: new Date(BASE_DATE - 0.5 * 24 * 60 * 60 * 1000).toISOString(), oemApproval: { approved: false, approvedAt: null, approvedBy: null }, certApproval: { approved: false, approvedAt: null, approvedBy: null }, printAuthToken: null },
+   221→  // ORD-2846: OEM approved, cert pending
+   222→  { id: 'ord-2', orderId: 'ORD-2846', partName: 'Hydraulic Valve Body', status: 'quality_check', priority: 'medium', quantity: 1, eta: new Date(BASE_DATE + 1 * 24 * 60 * 60 * 1000).toISOString(), requesterId: 'user-2', blueprintId: 'bp-2', centerId: 'pc-2', notes: null, createdAt: new Date(BASE_DATE - 2 * 24 * 60 * 60 * 1000).toISOString(), oemApproval: { approved: true, approvedAt: new Date(BASE_DATE - 30 * 60 * 60 * 1000).toISOString(), approvedBy: 'OEM Partner (Baker Hughes)' }, certApproval: { approved: false, approvedAt: null, approvedBy: null }, printAuthToken: null },
+   223→  // ORD-2845: Both approved, shipped
+   224→  { id: 'ord-3', orderId: 'ORD-2845', partName: 'Sensor Mounting Bracket', status: 'shipped', priority: 'low', quantity: 5, eta: new Date(BASE_DATE - 1 * 24 * 60 * 60 * 1000).toISOString(), requesterId: 'user-3', blueprintId: 'bp-3', centerId: 'pc-1', notes: null, createdAt: new Date(BASE_DATE - 3 * 24 * 60 * 60 * 1000).toISOString(), oemApproval: { approved: true, approvedAt: new Date(BASE_DATE - 60 * 60 * 60 * 1000).toISOString(), approvedBy: 'OEM Partner (Baker Hughes)' }, certApproval: { approved: true, approvedAt: new Date(BASE_DATE - 58 * 60 * 60 * 1000).toISOString(), approvedBy: "Cert Authority (Lloyd's Register)" }, printAuthToken: 'drm-b4e9c3d2-5e6f-7a8b-9c0d-1e2f3a4b5c6d' },
+   225→  // ORD-2844: No approvals yet — awaiting in queue
+   226→  { id: 'ord-4', orderId: 'ORD-2844', partName: 'Impeller Shaft', status: 'pending', priority: 'high', quantity: 1, eta: new Date(BASE_DATE + 5 * 24 * 60 * 60 * 1000).toISOString(), requesterId: 'user-1', blueprintId: 'bp-4', centerId: 'pc-2', notes: 'Rush order for offshore platform', createdAt: new Date(BASE_DATE - 0.5 * 24 * 60 * 60 * 1000).toISOString(), oemApproval: { approved: false, approvedAt: null, approvedBy: null }, certApproval: { approved: false, approvedAt: null, approvedBy: null }, printAuthToken: null },
+   227→  // ORD-2843: Both approved, delivered
+   228→  { id: 'ord-5', orderId: 'ORD-2843', partName: 'Heat Exchanger Plate', status: 'delivered', priority: 'medium', quantity: 3, eta: new Date(BASE_DATE - 3 * 24 * 60 * 60 * 1000).toISOString(), requesterId: 'user-2', blueprintId: 'bp-5', centerId: 'pc-3', notes: null, createdAt: new Date(BASE_DATE - 7 * 24 * 60 * 60 * 1000).toISOString(), oemApproval: { approved: true, approvedAt: new Date(BASE_DATE - 8 * 24 * 60 * 60 * 1000).toISOString(), approvedBy: 'OEM Partner (Baker Hughes)' }, certApproval: { approved: true, approvedAt: new Date(BASE_DATE - 7.8 * 24 * 60 * 60 * 1000).toISOString(), approvedBy: "Cert Authority (DNV GL)" }, printAuthToken: 'drm-c5f0d4e3-6f7a-8b9c-0d1e-2f3a4b5c6d7e' },
+   229→  // ORD-2842: Cert approved, OEM pending
+   230→  { id: 'ord-6', orderId: 'ORD-2842', partName: 'Pressure Housing Seal', status: 'pending', priority: 'medium', quantity: 4, eta: new Date(BASE_DATE + 2 * 24 * 60 * 60 * 1000).toISOString(), requesterId: 'user-1', blueprintId: 'bp-6', centerId: 'pc-1', notes: null, createdAt: new Date(BASE_DATE - 1 * 24 * 60 * 60 * 1000).toISOString(), oemApproval: { approved: false, approvedAt: null, approvedBy: null }, certApproval: { approved: true, approvedAt: new Date(BASE_DATE - 22 * 60 * 60 * 1000).toISOString(), approvedBy: "Cert Authority (DNV GL)" }, printAuthToken: null },
+   231→  // ORD-2841: Both approved, delivered
+   232→  { id: 'ord-7', orderId: 'ORD-2841', partName: 'Motor Coupling Flange', status: 'delivered', priority: 'low', quantity: 2, eta: new Date(BASE_DATE - 5 * 24 * 60 * 60 * 1000).toISOString(), requesterId: 'user-3', blueprintId: 'bp-7', centerId: 'pc-2', notes: null, createdAt: new Date(BASE_DATE - 10 * 24 * 60 * 60 * 1000).toISOString(), oemApproval: { approved: true, approvedAt: new Date(BASE_DATE - 11 * 24 * 60 * 60 * 1000).toISOString(), approvedBy: 'OEM Partner (Baker Hughes)' }, certApproval: { approved: true, approvedAt: new Date(BASE_DATE - 10.8 * 24 * 60 * 60 * 1000).toISOString(), approvedBy: "Cert Authority (Lloyd's Register)" }, printAuthToken: 'drm-d6a1e5f4-7a8b-9c0d-1e2f-3a4b5c6d7e8f' },
+   233→  // ORD-2850: No approvals — awaiting queue
+   234→  { id: 'ord-8', orderId: 'ORD-2850', partName: 'Flange Connector', status: 'pending', priority: 'medium', quantity: 3, eta: new Date(BASE_DATE + 4 * 24 * 60 * 60 * 1000).toISOString(), requesterId: 'user-4', blueprintId: null, centerId: 'pc-2', notes: null, createdAt: new Date(BASE_DATE).toISOString(), oemApproval: { approved: false, approvedAt: null, approvedBy: null }, certApproval: { approved: false, approvedAt: null, approvedBy: null }, printAuthToken: null },
+   235→  // ORD-2851: OEM approved only
+   236→  { id: 'ord-9', orderId: 'ORD-2851', partName: 'Gasket Seal Ring', status: 'pending', priority: 'high', quantity: 10, eta: new Date(BASE_DATE + 3 * 24 * 60 * 60 * 1000).toISOString(), requesterId: 'user-5', blueprintId: 'bp-9', centerId: 'pc-5', notes: null, createdAt: new Date(BASE_DATE - 0.5 * 24 * 60 * 60 * 1000).toISOString(), oemApproval: { approved: true, approvedAt: new Date(BASE_DATE - 10 * 60 * 60 * 1000).toISOString(), approvedBy: 'OEM Partner (Baker Hughes)' }, certApproval: { approved: false, approvedAt: null, approvedBy: null }, printAuthToken: null },
+   237→  // ORD-2852: Both approved — ready to print
+   238→  { id: 'ord-10', orderId: 'ORD-2852', partName: 'Bearing Housing Cap', status: 'pending', priority: 'high', quantity: 2, eta: new Date(BASE_DATE + 1 * 24 * 60 * 60 * 1000).toISOString(), requesterId: 'user-1', blueprintId: 'bp-12', centerId: 'pc-3', notes: null, createdAt: new Date(BASE_DATE - 2 * 24 * 60 * 60 * 1000).toISOString(), oemApproval: { approved: true, approvedAt: new Date(BASE_DATE - 5 * 60 * 60 * 1000).toISOString(), approvedBy: 'OEM Partner (Baker Hughes)' }, certApproval: { approved: true, approvedAt: new Date(BASE_DATE - 3 * 60 * 60 * 1000).toISOString(), approvedBy: "Cert Authority (Lloyd's Register)" }, printAuthToken: null },
+   239→  { id: 'ord-11', orderId: 'ORD-2853', partName: 'Pump Impeller', status: 'shipped', priority: 'medium', quantity: 1, eta: new Date(BASE_DATE - 1 * 24 * 60 * 60 * 1000).toISOString(), requesterId: 'user-2', blueprintId: null, centerId: 'pc-2', notes: null, createdAt: new Date(BASE_DATE - 4 * 24 * 60 * 60 * 1000).toISOString(), oemApproval: { approved: true, approvedAt: new Date(BASE_DATE - 5 * 24 * 60 * 60 * 1000).toISOString(), approvedBy: 'OEM Partner (Baker Hughes)' }, certApproval: { approved: true, approvedAt: new Date(BASE_DATE - 4.8 * 24 * 60 * 60 * 1000).toISOString(), approvedBy: "Cert Authority (DNV GL)" }, printAuthToken: 'drm-e7b2f6a5-8b9c-0d1e-2f3a-4b5c6d7e8f9a' },
+   240→  { id: 'ord-12', orderId: 'ORD-2854', partName: 'Valve Stem', status: 'delivered', priority: 'low', quantity: 5, eta: new Date(BASE_DATE - 4 * 24 * 60 * 60 * 1000).toISOString(), requesterId: 'user-3', blueprintId: null, centerId: 'pc-1', notes: null, createdAt: new Date(BASE_DATE - 8 * 24 * 60 * 60 * 1000).toISOString(), oemApproval: { approved: true, approvedAt: new Date(BASE_DATE - 9 * 24 * 60 * 60 * 1000).toISOString(), approvedBy: 'OEM Partner (Baker Hughes)' }, certApproval: { approved: true, approvedAt: new Date(BASE_DATE - 8.8 * 24 * 60 * 60 * 1000).toISOString(), approvedBy: "Cert Authority (Lloyd's Register)" }, printAuthToken: 'drm-f8c3a7b6-9c0d-1e2f-3a4b-5c6d7e8f9a0b' },
+   241→  { id: 'ord-13', orderId: 'ORD-2855', partName: 'Shaft Coupling', status: 'pending', priority: 'medium', quantity: 2, eta: new Date(BASE_DATE + 5 * 24 * 60 * 60 * 1000).toISOString(), requesterId: 'user-4', blueprintId: null, centerId: null, notes: null, createdAt: new Date(BASE_DATE).toISOString(), oemApproval: { approved: false, approvedAt: null, approvedBy: null }, certApproval: { approved: false, approvedAt: null, approvedBy: null }, printAuthToken: null },
+   242→  { id: 'ord-14', orderId: 'ORD-2856', partName: 'Pipe Fitting Adapter', status: 'printing', priority: 'low', quantity: 8, eta: new Date(BASE_DATE + 3 * 24 * 60 * 60 * 1000).toISOString(), requesterId: 'user-5', blueprintId: null, centerId: 'pc-5', notes: null, createdAt: new Date(BASE_DATE - 1 * 24 * 60 * 60 * 1000).toISOString(), oemApproval: { approved: true, approvedAt: new Date(BASE_DATE - 25 * 60 * 60 * 1000).toISOString(), approvedBy: 'OEM Partner (Baker Hughes)' }, certApproval: { approved: true, approvedAt: new Date(BASE_DATE - 23 * 60 * 60 * 1000).toISOString(), approvedBy: "Cert Authority (CSA)" }, printAuthToken: 'drm-a1b2c3d4-e5f6-7890-abcd-ef1234567890' },
+   243→]
+   244→
+   245→export const shipments = [
+   246→  { id: 'ship-1', trackingId: 'AMC-001-2024', orderId: 'ord-1', status: 'in_transit', origin: 'Atlantic XL, Halifax NS', destination: "Horizon Maritime, St. John's NL", carrier: 'FedEx Priority', estimatedDelivery: new Date(BASE_DATE + 2 * 24 * 60 * 60 * 1000).toISOString(), actualDelivery: null, distance: 1150, progress: 65 },
+   247→  { id: 'ship-2', trackingId: 'AMC-002-2024', orderId: 'ord-2', status: 'out_for_delivery', origin: 'DNV Calgary, Calgary AB', destination: 'Noble Corp, Edmonton AB', carrier: 'Purolator Express', estimatedDelivery: new Date(BASE_DATE + 1 * 24 * 60 * 60 * 1000).toISOString(), actualDelivery: null, distance: 300, progress: 90 },
+   248→  { id: 'ship-3', trackingId: 'AMC-003-2024', orderId: 'ord-3', status: 'delivered', origin: 'Atlantic XL, Halifax NS', destination: "Equinor, St. John's NL", carrier: 'UPS Ground', estimatedDelivery: new Date(BASE_DATE - 1 * 24 * 60 * 60 * 1000).toISOString(), actualDelivery: new Date(BASE_DATE - 1 * 24 * 60 * 60 * 1000).toISOString(), distance: 1150, progress: 100 },
+   249→  { id: 'ship-4', trackingId: 'AMC-004-2024', orderId: 'ord-5', status: 'delivered', origin: 'LR Montreal, Montreal QC', destination: 'Cove, Edmonton AB', carrier: 'FedEx Ground', estimatedDelivery: new Date(BASE_DATE - 5 * 24 * 60 * 60 * 1000).toISOString(), actualDelivery: new Date(BASE_DATE - 5 * 24 * 60 * 60 * 1000).toISOString(), distance: 3500, progress: 100 },
+   250→  { id: 'ship-5', trackingId: 'AMC-005-2024', orderId: 'ord-6', status: 'in_transit', origin: 'Atlantic XL, Halifax NS', destination: "Rosen Maritime, St. John's NL", carrier: 'FedEx Priority', estimatedDelivery: new Date(BASE_DATE + 2 * 24 * 60 * 60 * 1000).toISOString(), actualDelivery: null, distance: 1150, progress: 45 },
+   251→  { id: 'ship-6', trackingId: 'AMC-006-2024', orderId: 'ord-7', status: 'delivered', origin: 'DNV Calgary, Calgary AB', destination: 'Horizon Maritime, Halifax NS', carrier: 'Purolator', estimatedDelivery: new Date(BASE_DATE - 8 * 24 * 60 * 60 * 1000).toISOString(), actualDelivery: new Date(BASE_DATE - 8 * 24 * 60 * 60 * 1000).toISOString(), distance: 4500, progress: 100 },
+   252→  { id: 'ship-7', trackingId: 'AMC-007-2024', orderId: 'ord-8', status: 'preparing', origin: 'Atlantic XL, Halifax NS', destination: "Equinor, St. John's NL", carrier: 'FedEx Priority', estimatedDelivery: new Date(BASE_DATE + 4 * 24 * 60 * 60 * 1000).toISOString(), actualDelivery: null, distance: 1150, progress: 10 },
+   253→  { id: 'ship-8', trackingId: 'AMC-008-2024', orderId: 'ord-9', status: 'delayed', origin: 'Victoria Marine, Victoria BC', destination: 'Thales, Ottawa ON', carrier: 'Canada Post', estimatedDelivery: new Date(BASE_DATE + 3 * 24 * 60 * 60 * 1000).toISOString(), actualDelivery: null, distance: 4500, progress: 35 },
+   254→]
+   255→
+   256→export const partners = [
+   257→  { id: 'partner-1', name: 'Rosen Maritime', email: 'partnerships@rosenmaritime.com', phone: '+1 902-555-0101', type: 'OEM', status: 'active', address: "St. John's, NL, Canada", notes: 'Key partner for thruster components', blueprints: 47, totalPrints: 1234, revenue: 185000, joinedDate: '2024-01-15' },
+   258→  { id: 'partner-2', name: 'Noble Corp', email: 'supply.chain@noblecorp.com', phone: '+1 403-555-0202', type: 'OEM', status: 'active', address: 'Calgary, AB, Canada', notes: 'Primary offshore drilling equipment supplier', blueprints: 32, totalPrints: 856, revenue: 128000, joinedDate: '2024-02-20' },
+   259→  { id: 'partner-3', name: 'Thales Canada', email: 'procurement@thales.ca', phone: '+1 416-555-0303', type: 'Integrator', status: 'active', address: 'Ottawa, ON, Canada', notes: 'Defense sector partner', blueprints: 28, totalPrints: 445, revenue: 95000, joinedDate: '2024-03-10' },
+   260→  { id: 'partner-4', name: 'Equinor Canada', email: 'sourcing@equinor.com', phone: '+1 709-555-0404', type: 'OEM', status: 'active', address: "St. John's, NL, Canada", notes: 'Bay du Nord project partner', blueprints: 23, totalPrints: 567, revenue: 85000, joinedDate: '2024-03-25' },
+   261→  { id: 'partner-5', name: 'Horizon Maritime', email: 'operations@horizonmaritime.ca', phone: '+1 902-555-0505', type: 'Service Provider', status: 'active', address: 'Halifax, NS, Canada', notes: 'Primary beta tester for pilot program', blueprints: 18, totalPrints: 324, revenue: 48500, joinedDate: '2024-04-01' },
+   262→  { id: 'partner-6', name: 'Cove Energy', email: 'supply@coveenergy.com', phone: '+1 780-555-0606', type: 'Distributor', status: 'pending', address: 'Edmonton, AB, Canada', notes: 'New partner - pending verification', blueprints: 12, totalPrints: 89, revenue: 13400, joinedDate: '2024-06-15' },
+   263→  { id: 'partner-7', name: 'Wärtsilä Canada', email: 'parts@wartsila.com', phone: '+1 604-555-0707', type: 'OEM', status: 'active', address: 'Vancouver, BC, Canada', notes: 'Marine propulsion systems specialist', blueprints: 35, totalPrints: 678, revenue: 102000, joinedDate: '2024-02-01' },
+   264→  { id: 'partner-8', name: 'Ecotex Industries', email: 'procurement@ecotex.ca', phone: '+1 867-555-0808', type: 'Integrator', status: 'inactive', address: 'Yellowknife, NT, Canada', notes: 'Arctic utility components - account on hold', blueprints: 8, totalPrints: 45, revenue: 6750, joinedDate: '2024-01-20' },
+   265→]
+   266→
+   267→export const materials = [
+   268→  { id: 'mat-1', name: 'Titanium Ti-6Al-4V', category: 'Metal Powder', totalStock: 450, unit: 'kg', minStock: 200, maxStock: 1000, reorderPoint: 300, status: 'adequate', unitCost: 450, leadTime: 14, centerStocks: [{ centerName: 'Atlantic XL', stock: 200 }, { centerName: 'LR Montreal', stock: 150 }, { centerName: 'Victoria Marine', stock: 100 }] },
+   269→  { id: 'mat-2', name: 'Stainless Steel 316L', category: 'Metal Powder', totalStock: 680, unit: 'kg', minStock: 300, maxStock: 1500, reorderPoint: 400, status: 'adequate', unitCost: 120, leadTime: 7, centerStocks: [{ centerName: 'Atlantic XL', stock: 300 }, { centerName: 'DNV Calgary', stock: 200 }, { centerName: 'LR Montreal', stock: 180 }] },
+   270→  { id: 'mat-3', name: 'Aluminum 6061-T6', category: 'Metal Powder', totalStock: 150, unit: 'kg', minStock: 200, maxStock: 800, reorderPoint: 250, status: 'low', unitCost: 85, leadTime: 5, centerStocks: [{ centerName: 'Atlantic XL', stock: 80 }, { centerName: 'Victoria Marine', stock: 70 }] },
+   271→  { id: 'mat-4', name: 'Inconel 718', category: 'Metal Powder', totalStock: 280, unit: 'kg', minStock: 150, maxStock: 600, reorderPoint: 200, status: 'adequate', unitCost: 680, leadTime: 21, centerStocks: [{ centerName: 'DNV Calgary', stock: 180 }, { centerName: 'LR Montreal', stock: 100 }] },
+   272→  { id: 'mat-5', name: 'H13 Tool Steel', category: 'Metal Powder', totalStock: 90, unit: 'kg', minStock: 100, maxStock: 400, reorderPoint: 150, status: 'critical', unitCost: 220, leadTime: 10, centerStocks: [{ centerName: 'DNV Calgary', stock: 60 }, { centerName: 'Atlantic XL', stock: 30 }] },
+   273→  { id: 'mat-6', name: 'Steel 4340', category: 'Metal Powder', totalStock: 520, unit: 'kg', minStock: 200, maxStock: 1000, reorderPoint: 300, status: 'adequate', unitCost: 95, leadTime: 7, centerStocks: [{ centerName: 'DNV Calgary', stock: 300 }, { centerName: 'Atlantic XL', stock: 220 }] },
+   274→  { id: 'mat-7', name: 'Copper C18150', category: 'Metal Powder', totalStock: 120, unit: 'kg', minStock: 80, maxStock: 300, reorderPoint: 100, status: 'adequate', unitCost: 180, leadTime: 12, centerStocks: [{ centerName: 'LR Montreal', stock: 120 }] },
+   275→  { id: 'mat-8', name: 'Bronze C95400', category: 'Metal Powder', totalStock: 75, unit: 'kg', minStock: 100, maxStock: 400, reorderPoint: 150, status: 'low', unitCost: 150, leadTime: 10, centerStocks: [{ centerName: 'Victoria Marine', stock: 75 }] },
+   276→]
+   277→
+   278→export const certifications = [
+   279→  { id: 'cert-1', name: "Lloyd's Register Type Approval", type: 'Type Approval', issuer: "Lloyd's Register", holder: 'Atlantic XL', status: 'active', issueDate: '2023-06-15', expiryDate: '2026-06-14', scope: 'Marine structural and critical components - Metal AM', documentUrl: '/certs/lr-atlantic-xl.pdf' },
+   280→  { id: 'cert-2', name: 'DNV GL Part 6 Certification', type: 'Part Certification', issuer: 'DNV GL', holder: 'DNV Calgary', status: 'active', issueDate: '2023-08-20', expiryDate: '2026-08-19', scope: 'Offshore components - High-temperature materials', documentUrl: '/certs/dnv-calgary.pdf' },
+   281→  { id: 'cert-3', name: "Lloyd's Register Type Approval", type: 'Type Approval', issuer: "Lloyd's Register", holder: 'LR Montreal', status: 'active', issueDate: '2024-01-10', expiryDate: '2027-01-09', scope: 'Thermal components and heat exchangers', documentUrl: '/certs/lr-montreal.pdf' },
+   282→  { id: 'cert-4', name: 'CSA Certification', type: 'Product Certification', issuer: 'CSA Group', holder: 'Victoria Marine', status: 'active', issueDate: '2023-09-01', expiryDate: '2025-08-31', scope: 'Electrical enclosures and control panels', documentUrl: '/certs/csa-victoria.pdf' },
+   283→  { id: 'cert-5', name: 'DNV GL Part 6 Certification', type: 'Part Certification', issuer: 'DNV GL', holder: 'Atlantic XL', status: 'active', issueDate: '2023-11-15', expiryDate: '2026-11-14', scope: 'Subsea components - Titanium alloys', documentUrl: '/certs/dnv-atlantic-xl.pdf' },
+   284→  { id: 'cert-6', name: 'ISO 13485 Medical Devices', type: 'Quality Management', issuer: 'BSI', holder: 'Atlantic XL', status: 'pending', issueDate: '2024-06-01', expiryDate: '2027-05-31', scope: 'Medical device component manufacturing (pending audit)', documentUrl: null },
+   285→  { id: 'cert-7', name: "Lloyd's Register Type Approval", type: 'Type Approval', issuer: "Lloyd's Register", holder: "St. John's AM", status: 'expired', issueDate: '2021-03-20', expiryDate: '2024-03-19', scope: 'Emergency marine components', documentUrl: '/certs/lr-stjohns.pdf' },
+   286→  { id: 'cert-8', name: 'AS9100D Aerospace', type: 'Quality Management', issuer: 'SAI Global', holder: 'DNV Calgary', status: 'expiring_soon', issueDate: '2022-04-01', expiryDate: '2025-03-31', scope: 'Aerospace component manufacturing', documentUrl: '/certs/as9100-calgary.pdf' },
+   287→]
+   288→
+   289→// Extended audit logs with DRM events and hash chain fields
+   290→export const auditLogs = [
+   291→  { id: 'log-1', orderId: 'ord-1', action: 'ORDER_CREATED', details: 'Order ORD-2847 created for Thruster Bearing Housing', userId: 'user-1', createdAt: new Date(BASE_DATE - 25 * 60 * 60 * 1000).toISOString(), order: { orderId: 'ORD-2847', partName: 'Thruster Bearing Housing' }, prevHash: '0000000000000000', logHash: 'a3f8b2c1d4e5f6a7b8c9d0e1f2a3b4c5' },
+   292→  { id: 'log-2', orderId: 'ord-1', action: 'OEM_APPROVED', details: 'OEM Partner (Baker Hughes) granted IP license for ORD-2847. Blueprint BP-1024 decryption rights authorized.', userId: 'user-oem', createdAt: new Date(BASE_DATE - 20 * 60 * 60 * 1000).toISOString(), order: { orderId: 'ORD-2847', partName: 'Thruster Bearing Housing' }, prevHash: 'a3f8b2c1d4e5f6a7b8c9d0e1f2a3b4c5', logHash: 'b4e9c3d2e5f6a7b8c9d0e1f2a3b4c5d6' },
+   293→  { id: 'log-3', orderId: 'ord-1', action: 'CERT_APPROVED', details: "Lloyd's Register verified Print Center PC-001 (Atlantic XL) holds valid certification for Titanium Ti-6Al-4V. Authorization granted.", userId: 'user-cert', createdAt: new Date(BASE_DATE - 18 * 60 * 60 * 1000).toISOString(), order: { orderId: 'ORD-2847', partName: 'Thruster Bearing Housing' }, prevHash: 'b4e9c3d2e5f6a7b8c9d0e1f2a3b4c5d6', logHash: 'c5f0d4e3f6a7b8c9d0e1f2a3b4c5d6e7' },
+   294→  { id: 'log-4', orderId: 'ord-1', action: 'PRINT_TOKEN_ISSUED', details: 'Secure one-time print token drm-a3f8b2** issued to PC-001 (Atlantic XL). Token expires after single print job.', userId: 'user-cert', createdAt: new Date(BASE_DATE - 17 * 60 * 60 * 1000).toISOString(), order: { orderId: 'ORD-2847', partName: 'Thruster Bearing Housing' }, prevHash: 'c5f0d4e3f6a7b8c9d0e1f2a3b4c5d6e7', logHash: 'd6a1e5f4a7b8c9d0e1f2a3b4c5d6e7f8' },
+   295→  { id: 'log-5', orderId: 'ord-1', action: 'PRINT_EXECUTED', details: 'Print job initiated at Atlantic XL. Encrypted G-code streamed to printer. Physical access logged via IoT sensor.', userId: null, createdAt: new Date(BASE_DATE - 16 * 60 * 60 * 1000).toISOString(), order: { orderId: 'ORD-2847', partName: 'Thruster Bearing Housing' }, prevHash: 'd6a1e5f4a7b8c9d0e1f2a3b4c5d6e7f8', logHash: 'e7b2f6a5b8c9d0e1f2a3b4c5d6e7f8a9' },
+   296→  { id: 'log-6', orderId: 'ord-2', action: 'ORDER_CREATED', details: 'Order ORD-2846 created for Hydraulic Valve Body', userId: 'user-2', createdAt: new Date(BASE_DATE - 32 * 60 * 60 * 1000).toISOString(), order: { orderId: 'ORD-2846', partName: 'Hydraulic Valve Body' }, prevHash: 'e7b2f6a5b8c9d0e1f2a3b4c5d6e7f8a9', logHash: 'f8c3a7b6c9d0e1f2a3b4c5d6e7f8a9b0' },
+   297→  { id: 'log-7', orderId: 'ord-2', action: 'OEM_APPROVED', details: 'OEM Partner (Baker Hughes) granted IP license for ORD-2846. Blueprint BP-0892 decryption rights authorized.', userId: 'user-oem', createdAt: new Date(BASE_DATE - 30 * 60 * 60 * 1000).toISOString(), order: { orderId: 'ORD-2846', partName: 'Hydraulic Valve Body' }, prevHash: 'f8c3a7b6c9d0e1f2a3b4c5d6e7f8a9b0', logHash: 'a9d4b8c7d0e1f2a3b4c5d6e7f8a9b0c1' },
+   298→  { id: 'log-8', orderId: 'ord-4', action: 'ORDER_CREATED', details: 'Order ORD-2844 created for Impeller Shaft — awaiting DRM approval pipeline', userId: 'user-1', createdAt: new Date(BASE_DATE - 14 * 60 * 60 * 1000).toISOString(), order: { orderId: 'ORD-2844', partName: 'Impeller Shaft' }, prevHash: 'a9d4b8c7d0e1f2a3b4c5d6e7f8a9b0c1', logHash: 'b0e5c9d8e1f2a3b4c5d6e7f8a9b0c1d2' },
+   299→  { id: 'log-9', orderId: 'ord-6', action: 'ORDER_CREATED', details: 'Order ORD-2842 created for Pressure Housing Seal', userId: 'user-1', createdAt: new Date(BASE_DATE - 26 * 60 * 60 * 1000).toISOString(), order: { orderId: 'ORD-2842', partName: 'Pressure Housing Seal' }, prevHash: 'b0e5c9d8e1f2a3b4c5d6e7f8a9b0c1d2', logHash: 'c1f6d0e9f2a3b4c5d6e7f8a9b0c1d2e3' },
+   300→  { id: 'log-10', orderId: 'ord-6', action: 'CERT_APPROVED', details: 'DNV GL verified Print Center PC-001 (Atlantic XL) certification for H13 Tool Steel. Waiting for OEM approval.', userId: 'user-cert', createdAt: new Date(BASE_DATE - 22 * 60 * 60 * 1000).toISOString(), order: { orderId: 'ORD-2842', partName: 'Pressure Housing Seal' }, prevHash: 'c1f6d0e9f2a3b4c5d6e7f8a9b0c1d2e3', logHash: 'd2a7e1f0a3b4c5d6e7f8a9b0c1d2e3f4' },
+   301→  { id: 'log-11', orderId: 'ord-10', action: 'ORDER_CREATED', details: 'Order ORD-2852 created for Bearing Housing Cap', userId: 'user-1', createdAt: new Date(BASE_DATE - 50 * 60 * 60 * 1000).toISOString(), order: { orderId: 'ORD-2852', partName: 'Bearing Housing Cap' }, prevHash: 'd2a7e1f0a3b4c5d6e7f8a9b0c1d2e3f4', logHash: 'e3b8f2a1b4c5d6e7f8a9b0c1d2e3f4a5' },
+   302→  { id: 'log-12', orderId: 'ord-10', action: 'OEM_APPROVED', details: 'OEM Partner (Baker Hughes) granted IP license for ORD-2852. Blueprint BP-0559 decryption rights authorized.', userId: 'user-oem', createdAt: new Date(BASE_DATE - 5 * 60 * 60 * 1000).toISOString(), order: { orderId: 'ORD-2852', partName: 'Bearing Housing Cap' }, prevHash: 'e3b8f2a1b4c5d6e7f8a9b0c1d2e3f4a5', logHash: 'f4c9a3b2c5d6e7f8a9b0c1d2e3f4a5b6' },
+   303→  { id: 'log-13', orderId: 'ord-10', action: 'CERT_APPROVED', details: "Lloyd's Register verified Print Center PC-003 (LR Montreal) for Stainless Steel 316L. All conditions met — ready for Secure Print.", userId: 'user-cert', createdAt: new Date(BASE_DATE - 3 * 60 * 60 * 1000).toISOString(), order: { orderId: 'ORD-2852', partName: 'Bearing Housing Cap' }, prevHash: 'f4c9a3b2c5d6e7f8a9b0c1d2e3f4a5b6', logHash: 'a5d0b4c3d6e7f8a9b0c1d2e3f4a5b6c7' },
+   304→]
+   305→
+   306→export const dashboardStats = {
+   307→  totalOrders: orders.length,
+   308→  activeOrders: orders.filter(o => ['pending', 'printing', 'quality_check'].includes(o.status)).length,
+   309→  deliveredParts: orders.filter(o => o.status === 'delivered').reduce((sum, o) => sum + o.quantity, 0),
+   310→  avgLeadTime: 4.2,
+   311→  costSavings: orders.filter(o => o.status === 'delivered').reduce((sum, o) => sum + o.quantity * 150, 0),
+   312→  totalBlueprints: blueprints.length,
+   313→  activeCenters: printCenters.filter(c => c.status === 'online').length,
+   314→}
+   315→
+   316→// ─── Physical Inventory ────────────────────────────────────────────────────
+   317→
+   318→export type PhysicalSite = {
+   319→  id: string
+   320→  name: string
+   321→  type: 'offshore_rig' | 'vessel' | 'onshore_yard' | 'warehouse'
+   322→  location: string
+   323→  operator: string
+   324→  status: 'active' | 'standby' | 'decommissioned'
+   325→}
+   326→
+   327→export type PartCondition = 'new' | 'serviceable' | 'used' | 'condemned'
+   328→
+   329→export type PhysicalPart = {
+   330→  id: string
+   331→  partNumber: string
+   332→  name: string
+   333→  category: string
+   334→  siteId: string
+   335→  quantity: number
+   336→  minStock: number
+   337→  unit: string
+   338→  condition: PartCondition
+   339→  blueprintId: string | null   // link to digital blueprint if available
+   340→  lastUsed: string | null
+   341→  lastInspected: string | null
+   342→  notes: string | null
+   343→  unitCost: number
+   344→}
+   345→
+   346→export type InventoryTransaction = {
+   347→  id: string
+   348→  partId: string
+   349→  siteId: string
+   350→  action: 'received' | 'consumed' | 'condemned' | 'transferred_in' | 'transferred_out' | 'inspected'
+   351→  quantity: number
+   352→  performedBy: string
+   353→  timestamp: string
+   354→  notes: string | null
+   355→}
+   356→
+   357→export const physicalSites: PhysicalSite[] = [
+   358→  { id: 'site-1', name: 'Rig Alpha — Bay du Nord', type: 'offshore_rig', location: 'Grand Banks, NL', operator: 'Equinor Canada', status: 'active' },
+   359→  { id: 'site-2', name: 'MV Rosen Explorer', type: 'vessel', location: 'Atlantic, NL', operator: 'Rosen Maritime', status: 'active' },
+   360→  { id: 'site-3', name: 'Halifax Yard — Atlantic XL', type: 'onshore_yard', location: 'Halifax, NS', operator: 'Atlantic XL', status: 'active' },
+   361→  { id: 'site-4', name: 'Thales Ottawa Warehouse', type: 'warehouse', location: 'Ottawa, ON', operator: 'Thales Canada', status: 'active' },
+   362→  { id: 'site-5', name: 'Horizon Platform 7', type: 'offshore_rig', location: 'Sable Island, NS', operator: 'Horizon Maritime', status: 'standby' },
+   363→]
+   364→
+   365→export const physicalParts: PhysicalPart[] = [
+   366→  // Rig Alpha
+   367→  { id: 'pp-1', partNumber: 'PHY-1024-A', name: 'Thruster Bearing Housing', category: 'Structural', siteId: 'site-1', quantity: 3, minStock: 2, unit: 'pcs', condition: 'new', blueprintId: 'bp-1', lastUsed: null, lastInspected: new Date(BASE_DATE - 30 * 864e5).toISOString(), notes: null, unitCost: 4800 },
+   368→  { id: 'pp-2', partNumber: 'PHY-0892-B', name: 'Hydraulic Valve Body', category: 'Hydraulic', siteId: 'site-1', quantity: 1, minStock: 2, unit: 'pcs', condition: 'serviceable', blueprintId: 'bp-2', lastUsed: new Date(BASE_DATE - 14 * 864e5).toISOString(), lastInspected: new Date(BASE_DATE - 7 * 864e5).toISOString(), notes: 'Slight surface wear', unitCost: 3200 },
+   369→  { id: 'pp-3', partNumber: 'PHY-0456-C', name: 'Sensor Mounting Bracket', category: 'Structural', siteId: 'site-1', quantity: 0, minStock: 4, unit: 'pcs', condition: 'new', blueprintId: 'bp-3', lastUsed: new Date(BASE_DATE - 2 * 864e5).toISOString(), lastInspected: null, notes: 'Last batch consumed', unitCost: 450 },
+   370→  { id: 'pp-4', partNumber: 'PHY-0789-D', name: 'Impeller Shaft', category: 'Rotating', siteId: 'site-1', quantity: 1, minStock: 1, unit: 'pcs', condition: 'used', blueprintId: 'bp-4', lastUsed: new Date(BASE_DATE - 60 * 864e5).toISOString(), lastInspected: new Date(BASE_DATE - 30 * 864e5).toISOString(), notes: 'Scheduled for swap', unitCost: 9200 },
+   371→  { id: 'pp-5', partNumber: 'PHY-0667-E', name: 'Pressure Housing Seal', category: 'Seals', siteId: 'site-1', quantity: 8, minStock: 5, unit: 'pcs', condition: 'new', blueprintId: 'bp-6', lastUsed: null, lastInspected: new Date(BASE_DATE - 10 * 864e5).toISOString(), notes: null, unitCost: 780 },
+   372→  { id: 'pp-6', partNumber: 'PHY-MISC-F', name: 'Pipe Gasket Ring', category: 'Seals', siteId: 'site-1', quantity: 2, minStock: 10, unit: 'pcs', condition: 'serviceable', blueprintId: null, lastUsed: new Date(BASE_DATE - 5 * 864e5).toISOString(), lastInspected: null, notes: 'Low stock critical', unitCost: 120 },
+   373→
+   374→  // MV Rosen Explorer
+   375→  { id: 'pp-7', partNumber: 'PHY-0123-G', name: 'Motor Coupling Flange', category: 'Coupling', siteId: 'site-2', quantity: 2, minStock: 1, unit: 'pcs', condition: 'new', blueprintId: 'bp-7', lastUsed: null, lastInspected: new Date(BASE_DATE - 45 * 864e5).toISOString(), notes: null, unitCost: 2100 },
+   376→  { id: 'pp-8', partNumber: 'PHY-0334-H', name: 'Heat Exchanger Plate', category: 'Thermal', siteId: 'site-2', quantity: 0, minStock: 2, unit: 'pcs', condition: 'condemned', blueprintId: 'bp-5', lastUsed: new Date(BASE_DATE - 1 * 864e5).toISOString(), lastInspected: new Date(BASE_DATE - 1 * 864e5).toISOString(), notes: 'Crack found in weld — condemned', unitCost: 2800 },
+   377→  { id: 'pp-9', partNumber: 'PHY-0556-I', name: 'Hydraulic Cylinder Rod', category: 'Hydraulic', siteId: 'site-2', quantity: 3, minStock: 2, unit: 'pcs', condition: 'new', blueprintId: 'bp-9', lastUsed: null, lastInspected: null, notes: null, unitCost: 3400 },
+   378→
+   379→  // Halifax Yard
+   380→  { id: 'pp-10', partNumber: 'PHY-1024-B', name: 'Thruster Bearing Housing', category: 'Structural', siteId: 'site-3', quantity: 5, minStock: 2, unit: 'pcs', condition: 'new', blueprintId: 'bp-1', lastUsed: null, lastInspected: new Date(BASE_DATE - 20 * 864e5).toISOString(), notes: 'Surplus — transfer candidate', unitCost: 4800 },
+   381→  { id: 'pp-11', partNumber: 'PHY-0558-J', name: 'Exhaust Valve Seat', category: 'Thermal', siteId: 'site-3', quantity: 4, minStock: 2, unit: 'pcs', condition: 'serviceable', blueprintId: 'bp-11', lastUsed: new Date(BASE_DATE - 90 * 864e5).toISOString(), lastInspected: new Date(BASE_DATE - 30 * 864e5).toISOString(), notes: null, unitCost: 1900 },
+   382→  { id: 'pp-12', partNumber: 'PHY-0559-K', name: 'Anchor Chain Link', category: 'Structural', siteId: 'site-3', quantity: 24, minStock: 10, unit: 'pcs', condition: 'new', blueprintId: 'bp-12', lastUsed: null, lastInspected: null, notes: null, unitCost: 340 },
+   383→
+   384→  // Thales Warehouse
+   385→  { id: 'pp-13', partNumber: 'PHY-0557-L', name: 'Propeller Blade Tip', category: 'Rotating', siteId: 'site-4', quantity: 2, minStock: 3, unit: 'pcs', condition: 'new', blueprintId: 'bp-10', lastUsed: null, lastInspected: new Date(BASE_DATE - 15 * 864e5).toISOString(), notes: 'Reorder pending', unitCost: 7600 },
+   386→  { id: 'pp-14', partNumber: 'PHY-0555-M', name: 'Control Panel Enclosure', category: 'Electrical', siteId: 'site-4', quantity: 1, minStock: 2, unit: 'pcs', condition: 'used', blueprintId: 'bp-8', lastUsed: new Date(BASE_DATE - 30 * 864e5).toISOString(), lastInspected: null, notes: null, unitCost: 1200 },
+   387→]
+   388→
+   389→export const inventoryTransactions: InventoryTransaction[] = [
+   390→  { id: 'tx-1', partId: 'pp-3', siteId: 'site-1', action: 'consumed', quantity: 4, performedBy: 'Mike Johnson', timestamp: new Date(BASE_DATE - 2 * 864e5).toISOString(), notes: 'Replaced after vibration inspection' },
+   391→  { id: 'tx-2', partId: 'pp-8', siteId: 'site-2', action: 'condemned', quantity: 2, performedBy: 'David Brown', timestamp: new Date(BASE_DATE - 1 * 864e5).toISOString(), notes: 'Weld crack found — scrapped' },
+   392→  { id: 'tx-3', partId: 'pp-2', siteId: 'site-1', action: 'consumed', quantity: 1, performedBy: 'John Operator', timestamp: new Date(BASE_DATE - 14 * 864e5).toISOString(), notes: 'Emergency swap on valve line B' },
+   393→  { id: 'tx-4', partId: 'pp-5', siteId: 'site-1', action: 'received', quantity: 8, performedBy: 'John Operator', timestamp: new Date(BASE_DATE - 20 * 864e5).toISOString(), notes: 'Received from Halifax Yard transfer' },
+   394→  { id: 'tx-5', partId: 'pp-4', siteId: 'site-1', action: 'inspected', quantity: 1, performedBy: 'Sarah Chen', timestamp: new Date(BASE_DATE - 30 * 864e5).toISOString(), notes: 'Annual inspection — still within service limits' },
+   395→  { id: 'tx-6', partId: 'pp-1', siteId: 'site-1', action: 'received', quantity: 3, performedBy: 'John Operator', timestamp: new Date(BASE_DATE - 45 * 864e5).toISOString(), notes: 'New stock from print center' },
+   396→  { id: 'tx-7', partId: 'pp-10', siteId: 'site-3', action: 'transferred_out', quantity: 2, performedBy: 'Robert Mackenzie', timestamp: new Date(BASE_DATE - 21 * 864e5).toISOString(), notes: 'Transferred to Rig Alpha' },
+   397→  { id: 'tx-8', partId: 'pp-13', siteId: 'site-4', action: 'consumed', quantity: 1, performedBy: 'Lisa Wang', timestamp: new Date(BASE_DATE - 10 * 864e5).toISOString(), notes: 'Installed on UAV test platform' },
+   398→  { id: 'tx-9', partId: 'pp-6', siteId: 'site-1', action: 'consumed', quantity: 3, performedBy: 'Mike Johnson', timestamp: new Date(BASE_DATE - 5 * 864e5).toISOString(), notes: 'Replaced during scheduled maintenance window' },
+   399→]
+
+[showing lines 200-399 of 401; use offset=400 with limit to continue reading]

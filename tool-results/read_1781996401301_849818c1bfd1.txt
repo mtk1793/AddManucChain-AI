@@ -1,0 +1,843 @@
+     1→'use client'
+     2→
+     3→import { useState } from 'react'
+     4→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+     5→import { Badge } from '@/components/ui/badge'
+     6→import { Button } from '@/components/ui/button'
+     7→import { Input } from '@/components/ui/input'
+     8→import { Label } from '@/components/ui/label'
+     9→import { Textarea } from '@/components/ui/textarea'
+    10→import {
+    11→    Dialog,
+    12→    DialogContent,
+    13→    DialogHeader,
+    14→    DialogTitle,
+    15→    DialogDescription,
+    16→    DialogFooter,
+    17→} from '@/components/ui/dialog'
+    18→import {
+    19→    Select,
+    20→    SelectContent,
+    21→    SelectItem,
+    22→    SelectTrigger,
+    23→    SelectValue,
+    24→} from '@/components/ui/select'
+    25→import {
+    26→    Boxes,
+    27→    MapPin,
+    28→    AlertTriangle,
+    29→    CheckCircle2,
+    30→    Package,
+    31→    ArrowRight,
+    32→    Edit,
+    33→    Eye,
+    34→    Printer,
+    35→    ArrowLeftRight,
+    36→    Flame,
+    37→    Wrench,
+    38→    Plus,
+    39→    ShieldCheck,
+    40→    Clock,
+    41→    Building2,
+    42→    Anchor,
+    43→    Warehouse,
+    44→    Ship,
+    45→    Search,
+    46→    Activity,
+    47→} from 'lucide-react'
+    48→import { toast } from 'sonner'
+    49→import {
+    50→    physicalSites,
+    51→    physicalParts,
+    52→    inventoryTransactions,
+    53→    blueprints,
+    54→    PhysicalPart,
+    55→    PhysicalSite,
+    56→    InventoryTransaction,
+    57→} from '@/lib/static-data'
+    58→
+    59→// ─── Types & Helpers ──────────────────────────────────────────────────────────
+    60→
+    61→const conditionColors: Record<string, string> = {
+    62→    new: 'bg-emerald-100 text-emerald-700',
+    63→    serviceable: 'bg-[#0EA5E9]/10 text-[#0EA5E9]',
+    64→    used: 'bg-amber-100 text-amber-700',
+    65→    condemned: 'bg-red-100 text-red-600',
+    66→}
+    67→
+    68→const conditionIcons: Record<string, any> = {
+    69→    new: CheckCircle2,
+    70→    serviceable: Wrench,
+    71→    used: Clock,
+    72→    condemned: Flame,
+    73→}
+    74→
+    75→const siteTypeIcons: Record<string, any> = {
+    76→    offshore_rig: Anchor,
+    77→    vessel: Ship,
+    78→    onshore_yard: Building2,
+    79→    warehouse: Warehouse,
+    80→}
+    81→
+    82→const siteTypeLabels: Record<string, string> = {
+    83→    offshore_rig: 'Offshore Rig',
+    84→    vessel: 'Vessel',
+    85→    onshore_yard: 'Onshore Yard',
+    86→    warehouse: 'Warehouse',
+    87→}
+    88→
+    89→const txActionColors: Record<string, string> = {
+    90→    received: 'bg-emerald-100 text-emerald-700',
+    91→    consumed: 'bg-slate-100 text-slate-600',
+    92→    condemned: 'bg-red-100 text-red-600',
+    93→    transferred_in: 'bg-[#0EA5E9]/10 text-[#0EA5E9]',
+    94→    transferred_out: 'bg-purple-100 text-purple-700',
+    95→    inspected: 'bg-amber-100 text-amber-700',
+    96→}
+    97→
+    98→const txActionLabels: Record<string, string> = {
+    99→    received: 'Received',
+   100→    consumed: 'Consumed',
+   101→    condemned: 'Condemned',
+   102→    transferred_in: 'Transferred In',
+   103→    transferred_out: 'Transferred Out',
+   104→    inspected: 'Inspected',
+   105→}
+   106→
+   107→function getStockStatus(part: PhysicalPart): 'ok' | 'low' | 'critical' | 'out' {
+   108→    if (part.quantity === 0) return 'out'
+   109→    if (part.quantity < part.minStock) return part.quantity <= 1 ? 'critical' : 'low'
+   110→    return 'ok'
+   111→}
+   112→
+   113→// Find sites that have surplus of a given part (same name, qty > minStock)
+   114→function findSurplusSites(part: PhysicalPart, allParts: PhysicalPart[], allSites: PhysicalSite[]) {
+   115→    return allParts
+   116→        .filter(p => p.name === part.name && p.siteId !== part.siteId && p.quantity > p.minStock)
+   117→        .map(p => ({ ...p, site: allSites.find(s => s.id === p.siteId) }))
+   118→}
+   119→
+   120→// ─── Sub-components ───────────────────────────────────────────────────────────
+   121→
+   122→function SiteCard({ site, parts, onClick }: { site: PhysicalSite; parts: PhysicalPart[]; onClick: () => void }) {
+   123→    const SiteIcon = siteTypeIcons[site.type] || Building2
+   124→    const alertCount = parts.filter(p => getStockStatus(p) !== 'ok').length
+   125→    const total = parts.length
+   126→    const totalValue = parts.reduce((s, p) => s + p.quantity * p.unitCost, 0)
+   127→
+   128→    return (
+   129→        <button
+   130→            onClick={onClick}
+   131→            className="w-full text-left group"
+   132→        >
+   133→            <Card className={`border-2 transition-all duration-200 group-hover:shadow-lg group-hover:border-[#0EA5E9]/40 ${alertCount > 0 ? 'border-amber-200' : 'border-slate-200'
+   134→                }`}>
+   135→                <CardContent className="p-4">
+   136→                    <div className="flex items-start justify-between gap-3 mb-3">
+   137→                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${site.status === 'active' ? 'bg-[#0EA5E9]/10' :
+   138→                            site.status === 'standby' ? 'bg-amber-100' : 'bg-slate-100'
+   139→                            }`}>
+   140→                            <SiteIcon className={`w-5 h-5 ${site.status === 'active' ? 'text-[#0EA5E9]' :
+   141→                                site.status === 'standby' ? 'text-amber-600' : 'text-slate-400'
+   142→                                }`} />
+   143→                        </div>
+   144→                        <div className="flex-1 min-w-0">
+   145→                            <p className="font-bold text-[#0F172A] text-sm leading-tight">{site.name}</p>
+   146→                            <p className="text-xs text-slate-500 mt-0.5">{site.location}</p>
+   147→                        </div>
+   148→                        {alertCount > 0 && (
+   149→                            <Badge className="bg-amber-100 text-amber-700 text-xs flex-shrink-0">
+   150→                                ⚠ {alertCount} alert{alertCount > 1 ? 's' : ''}
+   151→                            </Badge>
+   152→                        )}
+   153→                    </div>
+   154→                    <div className="flex items-center gap-2 text-xs text-slate-500 mb-3">
+   155→                        <Badge className="bg-slate-100 text-slate-600 text-[10px]">{siteTypeLabels[site.type]}</Badge>
+   156→                        <span>·</span>
+   157→                        <span>{site.operator}</span>
+   158→                    </div>
+   159→                    <div className="grid grid-cols-3 gap-2">
+   160→                        <div className="text-center p-2 bg-slate-50 rounded-lg">
+   161→                            <p className="font-bold text-[#0F172A]">{total}</p>
+   162→                            <p className="text-[10px] text-slate-400">SKUs</p>
+   163→                        </div>
+   164→                        <div className="text-center p-2 bg-slate-50 rounded-lg">
+   165→                            <p className={`font-bold ${alertCount > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>{alertCount}</p>
+   166→                            <p className="text-[10px] text-slate-400">Alerts</p>
+   167→                        </div>
+   168→                        <div className="text-center p-2 bg-slate-50 rounded-lg">
+   169→                            <p className="font-bold text-[#0F172A] text-xs">${(totalValue / 1000).toFixed(0)}k</p>
+   170→                            <p className="text-[10px] text-slate-400">Value</p>
+   171→                        </div>
+   172→                    </div>
+   173→                </CardContent>
+   174→            </Card>
+   175→        </button>
+   176→    )
+   177→}
+   178→
+   179→// ─── Main Component ───────────────────────────────────────────────────────────
+   180→
+   181→export function PhysicalInventoryPage({ role = 'admin' }: { role?: string }) {
+   182→    const [parts, setParts] = useState<PhysicalPart[]>(physicalParts)
+   183→    const [txs, setTxs] = useState<InventoryTransaction[]>(inventoryTransactions)
+   184→
+   185→    const [selectedSite, setSelectedSite] = useState<PhysicalSite | null>(null)
+   186→    const [selectedPart, setSelectedPart] = useState<PhysicalPart | null>(null)
+   187→    const [viewMode, setViewMode] = useState<'sites' | 'all'>('sites')
+   188→    const [searchQuery, setSearchQuery] = useState('')
+   189→
+   190→    const [actionDialog, setActionDialog] = useState<'consume' | 'receive' | 'condemn' | 'print' | 'transfer' | null>(null)
+   191→    const [addPartOpen, setAddPartOpen] = useState(false)
+   192→    const [actionQty, setActionQty] = useState(1)
+   193→    const [actionNote, setActionNote] = useState('')
+   194→
+   195→    // New part form
+   196→    const [newPart, setNewPart] = useState({
+   197→        name: '', partNumber: '', category: 'Structural',
+   198→        siteId: physicalSites[0]?.id ?? '',
+   199→        quantity: 1, minStock: 2, unit: 'pcs',
+   200→        condition: 'new' as PhysicalPart['condition'],
+   201→        blueprintId: 'none', unitCost: 0, notes: '',
+   202→    })
+   203→
+   204→    // Validation errors for the add-part dialog
+   205→    const [newPartErrors, setNewPartErrors] = useState<{ name?: string; partNumber?: string }>({})
+   206→
+   207→    const siteParts = (siteId: string) => parts.filter(p => p.siteId === siteId)
+   208→    const filteredParts = parts.filter(p => {
+   209→        const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+   210→            p.partNumber.toLowerCase().includes(searchQuery.toLowerCase())
+   211→        const matchesSite = !selectedSite || p.siteId === selectedSite.id
+   212→        return matchesSearch && matchesSite
+   213→    })
+   214→
+   215→    // Counters
+   216→    const outOfStock = parts.filter(p => p.quantity === 0).length
+   217→    const lowStock = parts.filter(p => { const s = getStockStatus(p); return s === 'low' || s === 'critical' }).length
+   218→    const condemned = parts.filter(p => p.condition === 'condemned').length
+   219→    const totalValue = parts.reduce((s, p) => s + p.quantity * p.unitCost, 0)
+   220→
+   221→    const performAction = (action: 'consume' | 'receive' | 'condemn') => {
+   222→        if (!selectedPart) return
+   223→        const now = new Date().toISOString()
+   224→
+   225→        setParts(prev => prev.map(p => {
+   226→            if (p.id !== selectedPart.id) return p
+   227→            if (action === 'consume') {
+   228→                const newQty = Math.max(0, p.quantity - actionQty)
+   229→                return { ...p, quantity: newQty, lastUsed: now }
+   230→            }
+   231→            if (action === 'receive') return { ...p, quantity: p.quantity + actionQty }
+   232→            if (action === 'condemn') return { ...p, condition: 'condemned', quantity: Math.max(0, p.quantity - actionQty) }
+   233→            return p
+   234→        }))
+   235→
+   236→        setTxs(prev => [...prev, {
+   237→            id: `tx-${Date.now()}`,
+   238→            partId: selectedPart.id,
+   239→            siteId: selectedPart.siteId,
+   240→            action: action === 'consume' ? 'consumed' : action === 'receive' ? 'received' : 'condemned',
+   241→            quantity: actionQty,
+   242→            performedBy: 'Current User',
+   243→            timestamp: now,
+   244→            notes: actionNote || null,
+   245→        }])
+   246→
+   247→        const labels = { consume: 'consumed', receive: 'received', condemn: 'condemned' }
+   248→        toast.success(`${actionQty} × ${selectedPart.name} ${labels[action]}`, {
+   249→            description: 'Transaction logged to audit trail.',
+   250→        })
+   251→        setActionDialog(null)
+   252→        setActionQty(1)
+   253→        setActionNote('')
+   254→    }
+   255→
+   256→    const handlePrintReplacement = () => {
+   257→        if (!selectedPart) return
+   258→        toast.success(`Print order queued for ${selectedPart.name}`, {
+   259→            description: 'Entering DRM approval pipeline. OEM & Cert Authority will be notified.',
+   260→            duration: 6000,
+   261→        })
+   262→        setActionDialog(null)
+   263→    }
+   264→
+   265→    const handleAddPart = () => {
+   266→        const errs: typeof newPartErrors = {}
+   267→        if (!newPart.name) errs.name = 'Required'
+   268→        if (!newPart.partNumber) errs.partNumber = 'Required'
+   269→        if (Object.keys(errs).length) {
+   270→            setNewPartErrors(errs)
+   271→            toast.error('Part name and number are required')
+   272→            return
+   273→        }
+   274→        const created: PhysicalPart = {
+   275→            id: `pp-${Date.now()}`,
+   276→            partNumber: newPart.partNumber,
+   277→            name: newPart.name,
+   278→            category: newPart.category,
+   279→            siteId: newPart.siteId,
+   280→            quantity: newPart.quantity,
+   281→            minStock: newPart.minStock,
+   282→            unit: newPart.unit,
+   283→            condition: newPart.condition,
+   284→            blueprintId: (newPart.blueprintId && newPart.blueprintId !== 'none') ? newPart.blueprintId : null,
+   285→            lastUsed: null,
+   286→            lastInspected: null,
+   287→            notes: newPart.notes || null,
+   288→            unitCost: newPart.unitCost,
+   289→        }
+   290→        setParts(prev => [...prev, created])
+   291→        toast.success(`${created.name} added to inventory at ${physicalSites.find(s => s.id === created.siteId)?.name}`)
+   292→        setAddPartOpen(false)
+   293→        setNewPart({ name: '', partNumber: '', category: 'Structural', siteId: physicalSites[0]?.id ?? '', quantity: 1, minStock: 2, unit: 'pcs', condition: 'new', blueprintId: 'none', unitCost: 0, notes: '' })
+   294→    }
+   295→
+   296→    const partTxs = selectedPart ? txs.filter(t => t.partId === selectedPart.id) : []
+   297→    const surplusSites = selectedPart ? findSurplusSites(selectedPart, parts, physicalSites) : []
+   298→    const blueprint = selectedPart?.blueprintId ? blueprints.find(b => b.id === selectedPart.blueprintId) : null
+   299→
+   300→    return (
+   301→        <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
+   302→
+   303→            {/* ── Stats ── */}
+   304→            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+   305→                <Card className="bg-gradient-to-br from-red-600 to-red-700 border-none text-white">
+   306→                    <CardContent className="p-4 flex items-center justify-between">
+   307→                        <div><p className="text-red-200 text-xs">Out of Stock</p><p className="text-3xl font-bold">{outOfStock}</p></div>
+   308→                        <AlertTriangle className="w-8 h-8 text-red-300" />
+   309→                    </CardContent>
+   310→                </Card>
+   311→                <Card className="bg-gradient-to-br from-amber-500 to-amber-600 border-none text-white">
+   312→                    <CardContent className="p-4 flex items-center justify-between">
+   313→                        <div><p className="text-amber-100 text-xs">Low Stock</p><p className="text-3xl font-bold">{lowStock}</p></div>
+   314→                        <Package className="w-8 h-8 text-amber-200" />
+   315→                    </CardContent>
+   316→                </Card>
+   317→                <Card className="bg-gradient-to-br from-slate-700 to-slate-800 border-none text-white">
+   318→                    <CardContent className="p-4 flex items-center justify-between">
+   319→                        <div><p className="text-slate-300 text-xs">Condemned</p><p className="text-3xl font-bold">{condemned}</p></div>
+   320→                        <Flame className="w-8 h-8 text-slate-500" />
+   321→                    </CardContent>
+   322→                </Card>
+   323→                <Card className="bg-gradient-to-br from-[#0EA5E9] to-[#14B8A6] border-none text-white">
+   324→                    <CardContent className="p-4 flex items-center justify-between">
+   325→                        <div><p className="text-sky-100 text-xs">Total Value</p><p className="text-2xl font-bold">${(totalValue / 1000).toFixed(0)}k</p></div>
+   326→                        <Boxes className="w-8 h-8 text-sky-200" />
+   327→                    </CardContent>
+   328→                </Card>
+   329→            </div>
+   330→
+   331→            {/* ── View Toggle + Actions ── */}
+   332→            <div className="flex items-center justify-between gap-4">
+   333→                <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl p-1">
+   334→                    <button
+   335→                        onClick={() => { setViewMode('sites'); setSelectedSite(null) }}
+   336→                        className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${viewMode === 'sites' ? 'bg-[#0EA5E9] text-white' : 'text-slate-500 hover:text-[#0F172A]'
+   337→                            }`}
+   338→                    >
+   339→                        <MapPin className="w-3.5 h-3.5 inline mr-1" />Sites
+   340→                    </button>
+   341→                    <button
+   342→                        onClick={() => setViewMode('all')}
+   343→                        className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${viewMode === 'all' ? 'bg-[#0EA5E9] text-white' : 'text-slate-500 hover:text-[#0F172A]'
+   344→                            }`}
+   345→                    >
+   346→                        <Boxes className="w-3.5 h-3.5 inline mr-1" />All Parts
+   347→                    </button>
+   348→                </div>
+   349→                <div className="flex items-center gap-3 flex-1 max-w-sm">
+   350→                    <div className="relative flex-1">
+   351→                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+   352→                        <Input
+   353→                            placeholder="Search parts..."
+   354→                            className="pl-10 bg-white border-slate-200 text-sm h-9"
+   355→                            value={searchQuery}
+   356→                            onChange={e => setSearchQuery(e.target.value)}
+   357→                        />
+   358→                    </div>
+   359→                </div>
+   360→                <Button
+   361→                    onClick={() => setAddPartOpen(true)}
+   362→                    className="bg-[#0EA5E9] hover:bg-[#0EA5E9]/90 text-white h-9"
+   363→                >
+   364→                    <Plus className="w-4 h-4 mr-2" />Add Part
+   365→                </Button>
+   366→            </div>
+   367→
+   368→            {/* ── Sites View ── */}
+   369→            {viewMode === 'sites' && !selectedSite && (
+   370→                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+   371→                    {physicalSites.map(site => (
+   372→                        <SiteCard
+   373→                            key={site.id}
+   374→                            site={site}
+   375→                            parts={siteParts(site.id)}
+   376→                            onClick={() => { setSelectedSite(site); setViewMode('all') }}
+   377→                        />
+   378→                    ))}
+   379→                </div>
+   380→            )}
+   381→
+   382→            {/* ── Parts Table ── */}
+   383→            {(viewMode === 'all' || selectedSite) && (
+   384→                <Card className="bg-white border-slate-200">
+   385→                    <CardHeader className="pb-3">
+   386→                        <div className="flex items-center justify-between">
+   387→                            <CardTitle className="text-base font-bold text-[#0F172A] flex items-center gap-2">
+   388→                                <Boxes className="w-4 h-4 text-[#0EA5E9]" />
+   389→                                {selectedSite ? selectedSite.name : 'All Sites'} — Parts Cabinet
+   390→                                <Badge className="bg-slate-100 text-slate-600 ml-1">{filteredParts.length} SKUs</Badge>
+   391→                            </CardTitle>
+   392→                            {selectedSite && (
+   393→                                <Button variant="outline" size="sm" onClick={() => { setSelectedSite(null); setViewMode('sites') }}>
+   394→                                    ← All Sites
+   395→                                </Button>
+   396→                            )}
+   397→                        </div>
+   398→                    </CardHeader>
+   399→                    <CardContent className="p-0">
+   400→                        <div className="overflow-x-auto">
+   401→                            <table className="w-full">
+   402→                                <thead>
+   403→                                    <tr className="border-b border-slate-100 bg-slate-50">
+   404→                                        <th className="text-left text-xs font-semibold text-slate-500 px-4 py-2.5">Part</th>
+   405→                                        {!selectedSite && <th className="text-left text-xs font-semibold text-slate-500 px-4 py-2.5">Site</th>}
+   406→                                        <th className="text-left text-xs font-semibold text-slate-500 px-4 py-2.5">Condition</th>
+   407→                                        <th className="text-left text-xs font-semibold text-slate-500 px-4 py-2.5">Stock</th>
+   408→                                        <th className="text-left text-xs font-semibold text-slate-500 px-4 py-2.5">Status</th>
+   409→                                        <th className="text-left text-xs font-semibold text-slate-500 px-4 py-2.5">Blueprint</th>
+   410→                                        <th className="text-left text-xs font-semibold text-slate-500 px-4 py-2.5">Actions</th>
+   411→                                    </tr>
+   412→                                </thead>
+   413→                                <tbody>
+   414→                                    {filteredParts.map(part => {
+   415→                                        const status = getStockStatus(part)
+   416→                                        const CondIcon = conditionIcons[part.condition] || CheckCircle2
+   417→                                        const site = physicalSites.find(s => s.id === part.siteId)
+   418→                                        const bp = part.blueprintId ? blueprints.find(b => b.id === part.blueprintId) : null
+   419→                                        const stockPct = Math.min((part.quantity / Math.max(part.minStock * 2, 1)) * 100, 100)
+   420→
+   421→                                        return (
+   422→                                            <tr key={part.id} className={`border-b border-slate-50 hover:bg-slate-50 transition-colors ${status === 'out' ? 'bg-red-50/40' : status === 'critical' ? 'bg-orange-50/30' : ''
+   423→                                                }`}>
+   424→                                                {/* Part */}
+   425→                                                <td className="px-4 py-3">
+   426→                                                    <p className="font-semibold text-[#0F172A] text-sm">{part.name}</p>
+   427→                                                    <p className="text-[10px] text-slate-400 font-mono">{part.partNumber} · {part.category}</p>
+   428→                                                </td>
+   429→                                                {/* Site */}
+   430→                                                {!selectedSite && (
+   431→                                                    <td className="px-4 py-3">
+   432→                                                        <p className="text-xs text-slate-600">{site?.name}</p>
+   433→                                                        <p className="text-[10px] text-slate-400">{site?.location}</p>
+   434→                                                    </td>
+   435→                                                )}
+   436→                                                {/* Condition */}
+   437→                                                <td className="px-4 py-3">
+   438→                                                    <Badge className={`text-[10px] flex items-center gap-1 w-fit ${conditionColors[part.condition]}`}>
+   439→                                                        <CondIcon className="w-2.5 h-2.5" />
+   440→                                                        {part.condition}
+   441→                                                    </Badge>
+   442→                                                </td>
+   443→                                                {/* Stock */}
+   444→                                                <td className="px-4 py-3">
+   445→                                                    <div className="flex items-center gap-2">
+   446→                                                        <span className={`text-lg font-bold ${status === 'out' ? 'text-red-600' :
+   447→                                                            status === 'critical' ? 'text-orange-600' :
+   448→                                                                status === 'low' ? 'text-amber-600' : 'text-[#0F172A]'
+   449→                                                            }`}>{part.quantity}</span>
+   450→                                                        <div className="w-12 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+   451→                                                            <div
+   452→                                                                className={`h-full rounded-full ${status === 'out' ? 'bg-red-500' :
+   453→                                                                    status === 'critical' ? 'bg-orange-500' :
+   454→                                                                        status === 'low' ? 'bg-amber-400' : 'bg-emerald-500'
+   455→                                                                    }`}
+   456→                                                                style={{ width: `${stockPct}%` }}
+   457→                                                            />
+   458→                                                        </div>
+   459→                                                        <span className="text-[10px] text-slate-400">min {part.minStock}</span>
+   460→                                                    </div>
+   461→                                                </td>
+   462→                                                {/* Status badge */}
+   463→                                                <td className="px-4 py-3">
+   464→                                                    {status === 'out' && <Badge className="bg-red-100 text-red-700 text-[10px]">🔴 Out of Stock</Badge>}
+   465→                                                    {status === 'critical' && <Badge className="bg-orange-100 text-orange-700 text-[10px]">🟠 Critical</Badge>}
+   466→                                                    {status === 'low' && <Badge className="bg-amber-100 text-amber-700 text-[10px]">🟡 Low Stock</Badge>}
+   467→                                                    {status === 'ok' && <Badge className="bg-emerald-100 text-emerald-700 text-[10px]">✓ OK</Badge>}
+   468→                                                </td>
+   469→                                                {/* Blueprint */}
+   470→                                                <td className="px-4 py-3">
+   471→                                                    {bp ? (
+   472→                                                        <Badge className="bg-indigo-50 text-indigo-700 text-[10px]">🔑 {bp.blueprintId}</Badge>
+   473→                                                    ) : (
+   474→                                                        <span className="text-[10px] text-slate-300">No blueprint</span>
+   475→                                                    )}
+   476→                                                </td>
+   477→                                                {/* Actions */}
+   478→                                                <td className="px-4 py-3">
+   479→                                                    <div className="flex items-center gap-1">
+   480→                                                        <Button variant="ghost" size="icon" className="h-7 w-7"
+   481→                                                            onClick={() => { setSelectedPart(part); setActionDialog(null) }}
+   482→                                                            title="View details">
+   483→                                                            <Eye className="w-3.5 h-3.5" />
+   484→                                                        </Button>
+   485→                                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-600"
+   486→                                                            onClick={() => { setSelectedPart(part); setActionDialog('consume') }}
+   487→                                                            title="Log consumption">
+   488→                                                            <Edit className="w-3.5 h-3.5" />
+   489→                                                        </Button>
+   490→                                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-600"
+   491→                                                            onClick={() => { setSelectedPart(part); setActionDialog('receive') }}
+   492→                                                            title="Receive stock">
+   493→                                                            <Plus className="w-3.5 h-3.5" />
+   494→                                                        </Button>
+   495→                                                        {(status === 'out' || status === 'low' || status === 'critical') && bp && (
+   496→                                                            <Button
+   497→                                                                size="icon"
+   498→                                                                className="h-7 w-7 bg-indigo-600 hover:bg-indigo-700 text-white"
+   499→                                                                onClick={() => { setSelectedPart(part); setActionDialog('print') }}
+   500→                                                                title="Print replacement"
+   501→                                                            >
+   502→                                                                <Printer className="w-3.5 h-3.5" />
+   503→                                                            </Button>
+   504→                                                        )}
+   505→                                                    </div>
+   506→                                                </td>
+   507→                                            </tr>
+   508→                                        )
+   509→                                    })}
+   510→                                </tbody>
+   511→                            </table>
+   512→                        </div>
+   513→                    </CardContent>
+   514→                </Card>
+   515→            )}
+   516→
+   517→            {/* ── Part Detail Side Panel (shown when selectedPart and no dialog) ── */}
+   518→            {selectedPart && !actionDialog && (
+   519→                <div className="fixed right-0 top-0 bottom-0 w-96 bg-white border-l border-slate-200 shadow-2xl z-40 overflow-y-auto">
+   520→                    <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+   521→                        <div>
+   522→                            <p className="font-bold text-[#0F172A]">{selectedPart.name}</p>
+   523→                            <p className="text-xs text-slate-400 font-mono">{selectedPart.partNumber}</p>
+   524→                        </div>
+   525→                        <Button variant="ghost" size="icon" onClick={() => setSelectedPart(null)}>✕</Button>
+   526→                    </div>
+   527→
+   528→                    <div className="p-5 space-y-5">
+   529→                        {/* Stock overview */}
+   530→                        <div className="p-4 bg-slate-50 rounded-xl space-y-3">
+   531→                            <div className="flex items-center justify-between">
+   532→                                <span className="text-sm text-slate-500">On-Hand</span>
+   533→                                <span className={`text-2xl font-bold ${getStockStatus(selectedPart) === 'out' ? 'text-red-600' : 'text-[#0F172A]'
+   534→                                    }`}>{selectedPart.quantity} {selectedPart.unit}</span>
+   535→                            </div>
+   536→                            <div className="flex items-center justify-between">
+   537→                                <span className="text-sm text-slate-500">Min Stock</span>
+   538→                                <span className="font-medium">{selectedPart.minStock} {selectedPart.unit}</span>
+   539→                            </div>
+   540→                            <div className="flex items-center justify-between">
+   541→                                <span className="text-sm text-slate-500">Condition</span>
+   542→                                <Badge className={conditionColors[selectedPart.condition]}>{selectedPart.condition}</Badge>
+   543→                            </div>
+   544→                            <div className="flex items-center justify-between">
+   545→                                <span className="text-sm text-slate-500">Unit Cost</span>
+   546→                                <span className="font-medium">${selectedPart.unitCost.toLocaleString()}</span>
+   547→                            </div>
+   548→                            {selectedPart.lastUsed && (
+   549→                                <div className="flex items-center justify-between">
+   550→                                    <span className="text-sm text-slate-500">Last Used</span>
+   551→                                    <span className="text-xs text-slate-600">{new Date(selectedPart.lastUsed).toLocaleDateString()}</span>
+   552→                                </div>
+   553→                            )}
+   554→                            {selectedPart.notes && (
+   555→                                <p className="text-xs text-amber-700 bg-amber-50 p-2 rounded-lg">{selectedPart.notes}</p>
+   556→                            )}
+   557→                        </div>
+   558→
+   559→                        {/* Blueprint link */}
+   560→                        {blueprint && (
+   561→                            <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-xl">
+   562→                                <p className="text-xs font-semibold text-indigo-800 mb-1 flex items-center gap-1.5">
+   563→                                    <ShieldCheck className="w-3.5 h-3.5" />Digital Blueprint Available
+   564→                                </p>
+   565→                                <p className="text-xs text-indigo-700">{blueprint.blueprintId} · {blueprint.name}</p>
+   566→                                <p className="text-[10px] text-indigo-500 mt-0.5">{blueprint.oem} · {blueprint.certification}</p>
+   567→                            </div>
+   568→                        )}
+   569→
+   570→                        {/* Reorder suggestions */}
+   571→                        {getStockStatus(selectedPart) !== 'ok' && (
+   572→                            <div className="space-y-2">
+   573→                                <p className="text-xs font-bold text-[#0F172A] flex items-center gap-1.5">
+   574→                                    <Activity className="w-3.5 h-3.5 text-[#0EA5E9]" />Reorder Options
+   575→                                </p>
+   576→                                {surplusSites.length > 0 && (
+   577→                                    <button
+   578→                                        onClick={() => { setActionDialog('transfer'); toast.info('Transfer request sent to ' + surplusSites[0].site?.name) }}
+   579→                                        className="w-full text-left p-3 bg-emerald-50 border border-emerald-200 rounded-xl hover:bg-emerald-100 transition-colors"
+   580→                                    >
+   581→                                        <div className="flex items-center gap-2">
+   582→                                            <ArrowLeftRight className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+   583→                                            <div className="flex-1">
+   584→                                                <p className="text-xs font-semibold text-emerald-800">Transfer from {surplusSites[0].site?.name}</p>
+   585→                                                <p className="text-[10px] text-emerald-600">{surplusSites[0].quantity - surplusSites[0].minStock} surplus available · ~2-3 day transfer</p>
+   586→                                            </div>
+   587→                                            <ArrowRight className="w-3.5 h-3.5 text-emerald-500" />
+   588→                                        </div>
+   589→                                    </button>
+   590→                                )}
+   591→                                {blueprint && (
+   592→                                    <button
+   593→                                        onClick={() => { setActionDialog('print'); }}
+   594→                                        className="w-full text-left p-3 bg-indigo-50 border border-indigo-200 rounded-xl hover:bg-indigo-100 transition-colors"
+   595→                                    >
+   596→                                        <div className="flex items-center gap-2">
+   597→                                            <Printer className="w-4 h-4 text-indigo-600 flex-shrink-0" />
+   598→                                            <div className="flex-1">
+   599→                                                <p className="text-xs font-semibold text-indigo-800">Print on Demand</p>
+   600→                                                <p className="text-[10px] text-indigo-600">Requires OEM + Cert Authority approval · ~4-6 day lead</p>
+   601→                                            </div>
+   602→                                            <ArrowRight className="w-3.5 h-3.5 text-indigo-400" />
+   603→                                        </div>
+   604→                                    </button>
+   605→                                )}
+   606→                            </div>
+   607→                        )}
+   608→
+   609→                        {/* Transaction history */}
+   610→                        <div>
+   611→                            <p className="text-xs font-bold text-[#0F172A] mb-2">Transaction History</p>
+   612→                            {partTxs.length === 0 ? (
+   613→                                <p className="text-xs text-slate-400 text-center py-4">No transactions logged yet</p>
+   614→                            ) : (
+   615→                                <div className="space-y-2">
+   616→                                    {[...partTxs].reverse().map(tx => (
+   617→                                        <div key={tx.id} className="flex items-start gap-2 p-2.5 bg-slate-50 rounded-lg">
+   618→                                            <Badge className={`text-[9px] flex-shrink-0 ${txActionColors[tx.action]}`}>
+   619→                                                {txActionLabels[tx.action]}
+   620→                                            </Badge>
+   621→                                            <div className="flex-1 min-w-0">
+   622→                                                <p className="text-[10px] font-medium text-[#0F172A]">
+   623→                                                    {tx.quantity} {selectedPart.unit} · {tx.performedBy}
+   624→                                                </p>
+   625→                                                {tx.notes && <p className="text-[10px] text-slate-500 truncate">{tx.notes}</p>}
+   626→                                                <p className="text-[10px] text-slate-400">{new Date(tx.timestamp).toLocaleDateString()}</p>
+   627→                                            </div>
+   628→                                        </div>
+   629→                                    ))}
+   630→                                </div>
+   631→                            )}
+   632→                        </div>
+   633→
+   634→                        {/* Quick action buttons */}
+   635→                        <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-100">
+   636→                            <Button variant="outline" size="sm" className="text-xs" onClick={() => setActionDialog('consume')}>
+   637→                                <Edit className="w-3 h-3 mr-1" />Consume
+   638→                            </Button>
+   639→                            <Button variant="outline" size="sm" className="text-xs" onClick={() => setActionDialog('receive')}>
+   640→                                <Plus className="w-3 h-3 mr-1" />Receive
+   641→                            </Button>
+   642→                            <Button variant="outline" size="sm" className="text-xs text-red-600" onClick={() => setActionDialog('condemn')}>
+   643→                                <Flame className="w-3 h-3 mr-1" />Condemn
+   644→                            </Button>
+   645→                        </div>
+   646→                    </div>
+   647→                </div>
+   648→            )}
+   649→
+   650→            {/* ── Action Dialogs ── */}
+   651→            {['consume', 'receive', 'condemn'].includes(actionDialog ?? '') && (
+   652→                <Dialog open onOpenChange={() => setActionDialog(null)}>
+   653→                    <DialogContent className="max-w-sm">
+   654→                        <DialogHeader>
+   655→                            <DialogTitle>
+   656→                                {actionDialog === 'consume' ? '📤 Log Consumption' :
+   657→                                    actionDialog === 'receive' ? '📦 Receive Stock' : '🔥 Condemn Parts'}
+   658→                            </DialogTitle>
+   659→                            <DialogDescription>
+   660→                                {selectedPart?.name} · {selectedPart?.partNumber}
+   661→                            </DialogDescription>
+   662→                        </DialogHeader>
+   663→                        <div className="py-4 space-y-4">
+   664→                            <div className="space-y-2">
+   665→                                <Label>Quantity</Label>
+   666→                                <Input
+   667→                                    type="number" min={1}
+   668→                                    value={actionQty}
+   669→                                    onChange={e => setActionQty(parseInt(e.target.value) || 1)}
+   670→                                />
+   671→                            </div>
+   672→                            <div className="space-y-2">
+   673→                                <Label>Notes (optional)</Label>
+   674→                                <Textarea
+   675→                                    placeholder="Reason, location, job number..."
+   676→                                    value={actionNote}
+   677→                                    onChange={e => setActionNote(e.target.value)}
+   678→                                    rows={2}
+   679→                                />
+   680→                            </div>
+   681→                        </div>
+   682→                        <DialogFooter>
+   683→                            <Button variant="outline" onClick={() => setActionDialog(null)}>Cancel</Button>
+   684→                            <Button
+   685→                                onClick={() => performAction(actionDialog as any)}
+   686→                                className={
+   687→                                    actionDialog === 'condemn' ? 'bg-red-600 hover:bg-red-700 text-white' :
+   688→                                        actionDialog === 'receive' ? 'bg-emerald-600 hover:bg-emerald-700 text-white' :
+   689→                                            'bg-[#0EA5E9] text-white'
+   690→                                }
+   691→                            >
+   692→                                Confirm
+   693→                            </Button>
+   694→                        </DialogFooter>
+   695→                    </DialogContent>
+   696→                </Dialog>
+   697→            )}
+   698→
+   699→            {/* Print Replacement Dialog */}
+   700→            <Dialog open={actionDialog === 'print'} onOpenChange={() => setActionDialog(null)}>
+   701→                <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+   702→                    <DialogHeader>
+   703→                        <DialogTitle className="flex items-center gap-2">
+   704→                            <Printer className="w-5 h-5 text-indigo-600" />
+   705→                            Print Replacement — {selectedPart?.name}
+   706→                        </DialogTitle>
+   707→                        <DialogDescription>
+   708→                            Creates a print order that enters the DRM approval pipeline.
+   709→                        </DialogDescription>
+   710→                    </DialogHeader>
+   711→                    {selectedPart && blueprint && (
+   712→                        <div className="py-4 space-y-3">
+   713→                            <div className="p-4 bg-slate-50 rounded-xl space-y-2">
+   714→                                <div className="flex justify-between text-sm"><span className="text-slate-500">Blueprint</span><span className="font-mono font-bold text-indigo-700">{blueprint.blueprintId}</span></div>
+   715→                                <div className="flex justify-between text-sm"><span className="text-slate-500">Material</span><span className="font-medium">{blueprint.material}</span></div>
+   716→                                <div className="flex justify-between text-sm"><span className="text-slate-500">OEM</span><span className="font-medium">{blueprint.oem}</span></div>
+   717→                                <div className="flex justify-between text-sm"><span className="text-slate-500">Certification</span><span className="font-medium">{blueprint.certification}</span></div>
+   718→                                <div className="flex justify-between text-sm"><span className="text-slate-500">Current Stock</span><span className={`font-bold ${getStockStatus(selectedPart) === 'out' ? 'text-red-600' : 'text-amber-600'}`}>{selectedPart.quantity} {selectedPart.unit}</span></div>
+   719→                            </div>
+   720→                            <div className="p-3 bg-indigo-50 rounded-xl text-xs text-indigo-800 space-y-0.5">
+   721→                                <p className="font-semibold mb-1">Pipeline:</p>
+   722→                                <div className="flex items-center gap-1.5"><ArrowRight className="w-3 h-3" />OEM signs off IP license</div>
+   723→                                <div className="flex items-center gap-1.5"><ArrowRight className="w-3 h-3" />Cert Authority verifies print center</div>
+   724→                                <div className="flex items-center gap-1.5"><ArrowRight className="w-3 h-3" />Secure token issued → encrypted G-code streams to printer</div>
+   725→                            </div>
+   726→                        </div>
+   727→                    )}
+   728→                    <DialogFooter>
+   729→                        <Button variant="outline" onClick={() => setActionDialog(null)}>Cancel</Button>
+   730→                        <Button onClick={handlePrintReplacement} className="bg-indigo-600 hover:bg-indigo-700 text-white">
+   731→                            <Printer className="w-4 h-4 mr-2" />Submit Print Order
+   732→                        </Button>
+   733→                    </DialogFooter>
+   734→                </DialogContent>
+   735→            </Dialog>
+   736→
+   737→            {/* Add Part Dialog */}
+   738→            <Dialog open={addPartOpen} onOpenChange={setAddPartOpen}>
+   739→                <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+   740→                    <DialogHeader>
+   741→                        <DialogTitle>Add Physical Part</DialogTitle>
+   742→                        <DialogDescription>Register a physical part in your inventory cabinet.</DialogDescription>
+   743→                    </DialogHeader>
+   744→                    <div className="py-4 space-y-3">
+   745→                        <div className="grid grid-cols-2 gap-3">
+   746→                            <div className="space-y-1">
+   747→                                <Label className="text-xs">Part Name *</Label>
+   748→                                <Input
+   749→                                  placeholder="e.g., Valve Body"
+   750→                                  value={newPart.name}
+   751→                                  onChange={e => {
+   752→                                    setNewPart({ ...newPart, name: e.target.value })
+   753→                                    if (newPartErrors.name) setNewPartErrors(e => ({ ...e, name: undefined }))
+   754→                                  }}
+   755→                                  className={`h-8 text-sm ${newPartErrors.name ? 'border-red-500' : ''}`}
+   756→                                />
+   757→                                {newPartErrors.name && <p className="text-xs text-red-500 mt-1">{newPartErrors.name}</p>}
+   758→                            </div>
+   759→                            <div className="space-y-1">
+   760→                                <Label className="text-xs">Part Number *</Label>
+   761→                                <Input
+   762→                                  placeholder="PHY-XXXX"
+   763→                                  value={newPart.partNumber}
+   764→                                  onChange={e => {
+   765→                                    setNewPart({ ...newPart, partNumber: e.target.value })
+   766→                                    if (newPartErrors.partNumber) setNewPartErrors(e => ({ ...e, partNumber: undefined }))
+   767→                                  }}
+   768→                                  className={`h-8 text-sm ${newPartErrors.partNumber ? 'border-red-500' : ''}`}
+   769→                                />
+   770→                                {newPartErrors.partNumber && <p className="text-xs text-red-500 mt-1">{newPartErrors.partNumber}</p>}
+   771→                            </div>
+   772→                        </div>
+   773→                        <div className="grid grid-cols-2 gap-3">
+   774→                            <div className="space-y-1">
+   775→                                <Label className="text-xs">Category</Label>
+   776→                                <Select value={newPart.category} onValueChange={v => setNewPart({ ...newPart, category: v })}>
+   777→                                    <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+   778→                                    <SelectContent>
+   779→                                        {['Structural', 'Hydraulic', 'Rotating', 'Seals', 'Thermal', 'Electrical', 'Coupling'].map(c => (
+   780→                                            <SelectItem key={c} value={c}>{c}</SelectItem>
+   781→                                        ))}
+   782→                                    </SelectContent>
+   783→                                </Select>
+   784→                            </div>
+   785→                            <div className="space-y-1">
+   786→                                <Label className="text-xs">Condition</Label>
+   787→                                <Select value={newPart.condition} onValueChange={v => setNewPart({ ...newPart, condition: v as any })}>
+   788→                                    <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+   789→                                    <SelectContent>
+   790→                                        <SelectItem value="new">New</SelectItem>
+   791→                                        <SelectItem value="serviceable">Serviceable</SelectItem>
+   792→                                        <SelectItem value="used">Used</SelectItem>
+   793→                                        <SelectItem value="condemned">Condemned</SelectItem>
+   794→                                    </SelectContent>
+   795→                                </Select>
+   796→                            </div>
+   797→                        </div>
+   798→                        <div className="space-y-1">
+   799→                            <Label className="text-xs">Site</Label>
+   800→                            <Select value={newPart.siteId} onValueChange={v => setNewPart({ ...newPart, siteId: v })}>
+   801→                                <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+   802→                                <SelectContent>
+   803→                                    {physicalSites.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+   804→                                </SelectContent>
+   805→                            </Select>
+   806→                        </div>
+   807→                        <div className="grid grid-cols-3 gap-3">
+   808→                            <div className="space-y-1">
+   809→                                <Label className="text-xs">Qty on Hand</Label>
+   810→                                <Input type="number" min={0} value={newPart.quantity} onChange={e => setNewPart({ ...newPart, quantity: parseInt(e.target.value) || 0 })} className="h-8 text-sm" />
+   811→                            </div>
+   812→                            <div className="space-y-1">
+   813→                                <Label className="text-xs">Min Stock</Label>
+   814→                                <Input type="number" min={1} value={newPart.minStock} onChange={e => setNewPart({ ...newPart, minStock: parseInt(e.target.value) || 1 })} className="h-8 text-sm" />
+   815→                            </div>
+   816→                            <div className="space-y-1">
+   817→                                <Label className="text-xs">Unit Cost ($)</Label>
+   818→                                <Input type="number" min={0} value={newPart.unitCost} onChange={e => setNewPart({ ...newPart, unitCost: parseInt(e.target.value) || 0 })} className="h-8 text-sm" />
+   819→                            </div>
+   820→                        </div>
+   821→                        <div className="space-y-1">
+   822→                            <Label className="text-xs">Link Blueprint (optional)</Label>
+   823→                            <Select value={newPart.blueprintId} onValueChange={v => setNewPart({ ...newPart, blueprintId: v })}>
+   824→                                <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="No blueprint linked" /></SelectTrigger>
+   825→                                <SelectContent>
+   826→                                    <SelectItem value="none">No blueprint linked</SelectItem>
+   827→                                    {blueprints.filter(b => b.status === 'active').map(b => (
+   828→                                        <SelectItem key={b.id} value={b.id}>{b.blueprintId} — {b.name}</SelectItem>
+   829→                                    ))}
+   830→                                </SelectContent>
+   831→                            </Select>
+   832→                        </div>
+   833→                    </div>
+   834→                    <DialogFooter>
+   835→                        <Button variant="outline" onClick={() => setAddPartOpen(false)}>Cancel</Button>
+   836→                        <Button onClick={handleAddPart} className="bg-[#0EA5E9] text-white">Add to Inventory</Button>
+   837→                    </DialogFooter>
+   838→                </DialogContent>
+   839→            </Dialog>
+   840→        </div>
+   841→    )
+   842→}
+   843→

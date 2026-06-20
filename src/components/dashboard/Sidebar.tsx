@@ -43,6 +43,7 @@ import {
   Grid,
   Brain,
   Smartphone,
+  Bot,
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -103,9 +104,10 @@ const rolePermissions: Record<string, string[]> = {
   // Full access to everything
   admin: [
     'overview', 'orders', 'print_queue', 'emergency',
-    'ai_part_scanner', 'ai_auto_print',
+    'ai_agent', 'ai_part_scanner', 'ai_auto_print',
+    'workforce_knowledge',
     'ip_library', 'blueprints', 'partners', 'oem_portal',
-    'digital_inventory', 'physical_inventory', 'centers', 'peer_printers', 'shipments', 'materials', 'cooperative',
+    'digital_inventory', 'physical_inventory', 'smart_inventory', 'centers', 'peer_printers', 'shipments', 'materials', 'cooperative',
     'certifications', 'authorities', 'audit',
     'lab_portal', 'material_properties',
     'analytics', 'services', 'feasibility', 'sc_intelligence',
@@ -130,6 +132,7 @@ const rolePermissions: Record<string, string[]> = {
   // Customers / operators
   end_user: [
     'overview', 'orders', 'emergency',
+    'ai_agent', 'smart_inventory',
     'peer_printers', 'shipments', 'physical_inventory', 'digital_inventory', 'cooperative',
     'material_properties', 'my_printers', 'lab_portal', 'materials',
     'services', 'feasibility', 'sc_intelligence',
@@ -184,10 +187,12 @@ const endUserMenuSections = [
     items: [
       { id: 'overview',     label: 'Overview',         icon: LayoutDashboard },
       { id: 'orders',       label: 'Orders',           icon: Package,  badge: 3 },
+      { id: 'ai_agent',     label: 'AI Agent',         icon: Bot },
       { id: 'my_printers',  label: 'My Printers',      icon: Printer },
       { id: 'lab_portal',   label: 'Lab Testing',      icon: FlaskConical },
       { id: 'shipments',    label: 'Shipments',        icon: Truck },
       { id: 'materials',    label: 'Materials',        icon: Boxes },
+      { id: 'smart_inventory', label: 'Smart Inventory', icon: Boxes },
     ],
   },
   {
@@ -292,18 +297,27 @@ const baseMenuSections = [
   {
     title: 'AI Intelligence',
     items: [
-      { id: 'ai_part_scanner', label: 'Part Scanner', icon: Brain },
-      { id: 'ai_auto_print',   label: 'Auto-Print',   icon: Zap },
+      { id: 'ai_agent',        label: 'AI Operations Agent', icon: Bot },
+      { id: 'ai_part_scanner', label: 'Part Scanner',        icon: Brain },
+      { id: 'ai_auto_print',   label: 'Auto-Print',          icon: Zap },
+    ],
+  },
+  {
+    title: 'People & Knowledge',
+    items: [
+      { id: 'workforce_knowledge', label: 'Workforce Knowledge', icon: GraduationCap },
     ],
   },
   {
     title: 'Resources',
     items: [
-      { id: 'blueprints',   label: 'Blueprint Library', icon: FileBox },
-      { id: 'centers',      label: 'Print Centers',     icon: Factory },
-      { id: 'my_printers',  label: 'My Printers',       icon: Printer },
-      { id: 'shipments',    label: 'Shipments',         icon: Truck },
-      { id: 'lab_portal',   label: 'Lab Portal',        icon: FlaskConical },
+      { id: 'blueprints',        label: 'Blueprint Library',     icon: FileBox },
+      { id: 'centers',           label: 'Print Centers',         icon: Factory },
+      { id: 'my_printers',       label: 'My Printers',           icon: Printer },
+      { id: 'shipments',         label: 'Shipments',             icon: Truck },
+      { id: 'physical_inventory',label: 'Physical Inventory',    icon: Database },
+      { id: 'smart_inventory',   label: 'Smart Inventory Console', icon: Boxes },
+      { id: 'lab_portal',        label: 'Lab Portal',            icon: FlaskConical },
     ],
   },
   {

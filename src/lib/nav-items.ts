@@ -32,6 +32,8 @@ import {
   Download,
   Grid,
   Zap,
+  Bot,
+  GraduationCap,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -54,8 +56,12 @@ export const ALL_NAV_ITEMS: NavItem[] = [
   { id: 'emergency', label: 'Emergency Response', icon: AlertCircle, section: 'Pipeline', keywords: ['urgent', 'critical', 'triage'] },
 
   // AI Intelligence (new — interview-grounded)
+  { id: 'ai_agent', label: 'AI Operations Agent', icon: Bot, section: 'AI Intelligence', keywords: ['autonomous', 'agent', 'assistant', 'auto', 'chat', 'command', 'natural language'] },
   { id: 'ai_part_scanner', label: 'AI Part Scanner', icon: Brain, section: 'AI Intelligence', keywords: ['suitability', 'feasibility', 'candidate', 'roi', 'scan', 'am'] },
   { id: 'ai_auto_print', label: 'Auto-Print Rules', icon: Zap, section: 'AI Intelligence', keywords: ['replenishment', 'trigger', 'safety stock', 'automatic'] },
+
+  // People & Knowledge (Phase 4 — workforce memory)
+  { id: 'workforce_knowledge', label: 'Workforce Knowledge', icon: GraduationCap, section: 'People & Knowledge', keywords: ['employee', 'senior', 'junior', 'mentor', 'sop', 'lesson learned', 'onboarding', 'institutional memory', 'retiring'] },
 
   // Resources
   { id: 'blueprints', label: 'Blueprint Library', icon: FileBox, section: 'Resources', keywords: ['cad', 'design', 'files'] },
@@ -66,6 +72,7 @@ export const ALL_NAV_ITEMS: NavItem[] = [
   { id: 'materials', label: 'Materials', icon: Boxes, section: 'Resources', keywords: ['filament', 'resin', 'powder'] },
   { id: 'lab_portal', label: 'Lab Portal', icon: FlaskConical, section: 'Resources', keywords: ['testing', 'lab'] },
   { id: 'physical_inventory', label: 'Physical Inventory', icon: Database, section: 'Resources', keywords: ['stock', 'warehouse', 'spares'] },
+  { id: 'smart_inventory', label: 'Smart Inventory Console', icon: Boxes, section: 'Resources', keywords: ['ai inventory', 'auto', 'reorder', 'audit', 'manual'] },
   { id: 'digital_inventory', label: 'Digital Inventory', icon: Layers, section: 'Resources', keywords: ['forecast', 'ai'] },
 
   // Partners & IP

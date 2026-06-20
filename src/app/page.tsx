@@ -54,6 +54,9 @@ import {
   CommandPalette,
   PartSuitabilityScannerPage,
   AutoPrintRulesPanel,
+  AIAgentConsole,
+  WorkforceKnowledgePage,
+  SmartInventoryConsole,
 } from '@/components/dashboard'
 import OneClickOrderAutomation from '@/components/OneClickOrderAutomation'
 
@@ -134,10 +137,16 @@ export default function Dashboard() {
         return { title: 'Lab & Testing Portal', subtitle: 'AM testing requests, equipment scheduling & certification reports' }
       case 'emergency':
         return { title: 'Emergency Response', subtitle: 'Fast-path from breakdown to replacement — every minute counts' }
+      case 'ai_agent':
+        return { title: 'AI Operations Agent', subtitle: 'Type a request in plain English — the agent answers or acts automatically, with full audit logging' }
       case 'ai_part_scanner':
         return { title: 'AI Part Suitability Scanner', subtitle: 'Identify which inventory parts are worth digitizing for additive manufacturing' }
       case 'ai_auto_print':
         return { title: 'Smart Replenishment & Auto-Print', subtitle: 'When inventory drops, the printer kicks in automatically' }
+      case 'workforce_knowledge':
+        return { title: 'Workforce Knowledge & Memory', subtitle: 'Capture institutional knowledge from senior experts before it walks out the door' }
+      case 'smart_inventory':
+        return { title: 'Smart Inventory Console', subtitle: 'Manage physical spare parts manually or let the AI handle it — every action is audit-logged' }
       case 'oem_portal':
         return { title: 'OEM Self-Service Portal', subtitle: 'Upload blueprints, set licensing terms, and earn passive royalty revenue' }
       case 'cooperative':
@@ -237,10 +246,16 @@ export default function Dashboard() {
         return <PrintApprovalPage role={currentRole} />
       case 'emergency':
         return <EmergencyResponsePage role={currentRole} />
+      case 'ai_agent':
+        return <AIAgentConsole />
       case 'ai_part_scanner':
         return <PartSuitabilityScannerPage />
       case 'ai_auto_print':
         return <AutoPrintRulesPanel />
+      case 'workforce_knowledge':
+        return <WorkforceKnowledgePage />
+      case 'smart_inventory':
+        return <SmartInventoryConsole />
       case 'oem_portal':
         return <OEMPortalPage role={currentRole} />
       case 'cooperative':
