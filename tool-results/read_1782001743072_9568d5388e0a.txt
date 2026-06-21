@@ -1,0 +1,2002 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useCallback, useMemo } from 'react'
+     4→import {
+     5→  Card,
+     6→  CardContent,
+     7→  CardHeader,
+     8→  CardTitle,
+     9→  CardDescription,
+    10→} from '@/components/ui/card'
+    11→import { Button } from '@/components/ui/button'
+    12→import { Badge } from '@/components/ui/badge'
+    13→import { Input } from '@/components/ui/input'
+    14→import { Textarea } from '@/components/ui/textarea'
+    15→import {
+    16→  Tabs,
+    17→  TabsContent,
+    18→  TabsList,
+    19→  TabsTrigger,
+    20→} from '@/components/ui/tabs'
+    21→import {
+    22→  Dialog,
+    23→  DialogContent,
+    24→  DialogDescription,
+    25→  DialogHeader,
+    26→  DialogTitle,
+    27→} from '@/components/ui/dialog'
+    28→import {
+    29→  Select,
+    30→  SelectContent,
+    31→  SelectItem,
+    32→  SelectTrigger,
+    33→  SelectValue,
+    34→} from '@/components/ui/select'
+    35→import { ScrollArea } from '@/components/ui/scroll-area'
+    36→import { Progress } from '@/components/ui/progress'
+    37→import { Separator } from '@/components/ui/separator'
+    38→import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+    39→import {
+    40→  Tooltip,
+    41→  TooltipContent,
+    42→  TooltipProvider,
+    43→  TooltipTrigger,
+    44→} from '@/components/ui/tooltip'
+    45→import {
+    46→  Users,
+    47→  BookOpen,
+    48→  MessageCircleQuestion,
+    49→  GraduationCap,
+    50→  AlertTriangle,
+    51→  Calendar,
+    52→  Award,
+    53→  Search,
+    54→  RefreshCw,
+    55→  Loader2,
+    56→  Eye,
+    57→  ThumbsUp,
+    58→  ChevronRight,
+    59→  Sparkles,
+    60→  UserCircle2,
+    61→  Clock,
+    62→  CheckCircle2,
+    63→  FileText,
+    64→  Lightbulb,
+    65→  Wrench,
+    66→  ShieldAlert,
+    67→  BookMarked,
+    68→  UserCheck,
+    69→  Quote,
+    70→  ArrowRight,
+    71→} from 'lucide-react'
+    72→import { toast } from 'sonner'
+    73→
+    74→// ─── Types (mirror the API contracts) ────────────────────────────────────────
+    75→
+    76→type Seniority = 'retiring' | 'senior' | 'mid' | 'junior'
+    77→type EmployeeStatus = 'active' | 'departing' | 'retired'
+    78→type DocCategory =
+    79→  | 'sop'
+    80→  | 'lesson_learned'
+    81→  | 'troubleshooting'
+    82→  | 'procedure'
+    83→  | 'safety_bulletin'
+    84→  | 'case_study'
+    85→type Criticality = 'standard' | 'important' | 'critical'
+    86→
+    87→interface MentorRef {
+    88→  employeeId: string
+    89→  name: string
+    90→  title: string
+    91→}
+    92→interface MenteeRef {
+    93→  employeeId: string
+    94→  name: string
+    95→  title: string
+    96→}
+    97→interface Employee {
+    98→  id: string
+    99→  employeeId: string
+   100→  name: string
+   101→  email: string
+   102→  phone: string
+   103→  title: string
+   104→  department: string
+   105→  seniority: Seniority
+   106→  hireDate: string
+   107→  retirementDate: string | null
+   108→  yearsExperience: number
+   109→  status: EmployeeStatus
+   110→  specialties: string[]
+   111→  certifications: string[]
+   112→  bio: string
+   113→  mentorId: string | null
+   114→  mentor: MentorRef | null
+   115→  mentees: MenteeRef[]
+   116→  knowledgeDocCount: number
+   117→  activeTransfersFrom: number
+   118→  activeTransfersTo: number
+   119→  avatarColor: string
+   120→}
+   121→interface EmployeeSummary {
+   122→  total: number
+   123→  retiring: number
+   124→  senior: number
+   125→  junior: number
+   126→  atRiskDocs: number
+   127→}
+   128→interface EmployeesResponse {
+   129→  employees: Employee[]
+   130→  departments: string[]
+   131→  summary: EmployeeSummary
+   132→}
+   133→
+   134→interface DocAuthor {
+   135→  employeeId: string
+   136→  name: string
+   137→  title: string
+   138→  seniority: Seniority
+   139→  department: string
+   140→  yearsExperience: number
+   141→  retirementDate: string | null
+   142→  avatarColor: string
+   143→}
+   144→interface KnowledgeDoc {
+   145→  id: string
+   146→  documentId: string
+   147→  title: string
+   148→  category: DocCategory
+   149→  criticality: Criticality
+   150→  summary: string
+   151→  content: string
+   152→  tags: string[]
+   153→  equipmentTags: string[]
+   154→  viewCount: number
+   155→  helpfulCount: number
+   156→  status: string
+   157→  publishedAt: string
+   158→  author: DocAuthor | null
+   159→}
+   160→interface KnowledgeDocsResponse {
+   161→  documents: KnowledgeDoc[]
+   162→  summary: {
+   163→    total: number
+   164→    critical: number
+   165→    byAuthor: Record<string, number>
+   166→  }
+   167→}
+   168→interface KnowledgeDocSingleResponse {
+   169→  document: KnowledgeDoc
+   170→}
+   171→
+   172→interface CitedDoc {
+   173→  documentId: string
+   174→  title: string
+   175→  author: string
+   176→  authorTitle: string
+   177→  category: DocCategory
+   178→  criticality: Criticality
+   179→  relevanceScore: number
+   180→}
+   181→interface AskSeniorResponse {
+   182→  answer: string
+   183→  citedDocs: CitedDoc[]
+   184→  question: string
+   185→  seniorScope: string
+   186→}
+   187→
+   188→interface OnboardingMilestone {
+   189→  week: string
+   190→  milestone: string
+   191→}
+   192→interface OnboardingPlan {
+   193→  newHireTitle: string
+   194→  overview: string
+   195→  days1to30: string[]
+   196→  days31to60: string[]
+   197→  days61to90: string[]
+   198→  mustReadDocs: string[]
+   199→  mustShadowBuilds: string[]
+   200→  milestones: OnboardingMilestone[]
+   201→  risksOfKnowledgeLoss: string[]
+   202→  recommendedMentor: string
+   203→}
+   204→interface OnboardingSenior {
+   205→  employeeId: string
+   206→  name: string
+   207→  title: string
+   208→  department: string
+   209→  yearsExperience: number
+   210→  retirementDate: string | null
+   211→  specialties: string[]
+   212→}
+   213→interface OnboardingResponse {
+   214→  senior: OnboardingSenior
+   215→  plan: OnboardingPlan
+   216→  docCount: number
+   217→  transferCount: number
+   218→  generatedAt: string
+   219→}
+   220→
+   221→// ─── Style maps (NO indigo/blue — emerald/amber/violet/slate/red/teal only) ──
+   222→
+   223→const SENIORITY_STYLE: Record<
+   224→  Seniority,
+   225→  { label: string; badge: string; dot: string }
+   226→> = {
+   227→  retiring: {
+   228→    label: 'Retiring',
+   229→    badge: 'bg-amber-100 text-amber-700 border-amber-200',
+   230→    dot: 'bg-amber-500',
+   231→  },
+   232→  senior: {
+   233→    label: 'Senior',
+   234→    badge: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+   235→    dot: 'bg-emerald-500',
+   236→  },
+   237→  mid: {
+   238→    label: 'Mid-level',
+   239→    badge: 'bg-violet-100 text-violet-700 border-violet-200',
+   240→    dot: 'bg-violet-500',
+   241→  },
+   242→  junior: {
+   243→    label: 'Junior',
+   244→    badge: 'bg-slate-100 text-slate-600 border-slate-200',
+   245→    dot: 'bg-slate-400',
+   246→  },
+   247→}
+   248→
+   249→const CRITICALITY_STYLE: Record<
+   250→  Criticality,
+   251→  { badge: string; dot: string; label: string }
+   252→> = {
+   253→  critical: {
+   254→    badge: 'bg-red-100 text-red-700 border-red-200',
+   255→    dot: 'bg-red-500',
+   256→    label: 'Critical',
+   257→  },
+   258→  important: {
+   259→    badge: 'bg-amber-100 text-amber-700 border-amber-200',
+   260→    dot: 'bg-amber-500',
+   261→    label: 'Important',
+   262→  },
+   263→  standard: {
+   264→    badge: 'bg-slate-100 text-slate-600 border-slate-200',
+   265→    dot: 'bg-slate-400',
+   266→    label: 'Standard',
+   267→  },
+   268→}
+   269→
+   270→const CATEGORY_META: Record<
+   271→  DocCategory,
+   272→  { label: string; icon: typeof BookOpen }
+   273→> = {
+   274→  sop: { label: 'SOP', icon: FileText },
+   275→  lesson_learned: { label: 'Lesson Learned', icon: Lightbulb },
+   276→  troubleshooting: { label: 'Troubleshooting', icon: Wrench },
+   277→  procedure: { label: 'Procedure', icon: BookOpen },
+   278→  safety_bulletin: { label: 'Safety Bulletin', icon: ShieldAlert },
+   279→  case_study: { label: 'Case Study', icon: BookMarked },
+   280→}
+   281→
+   282→// ─── Helpers ─────────────────────────────────────────────────────────────────
+   283→
+   284→function initials(name: string): string {
+   285→  return name
+   286→    .split(/\s+/)
+   287→    .filter(Boolean)
+   288→    .slice(0, 2)
+   289→    .map((s) => s[0]?.toUpperCase() ?? '')
+   290→    .join('')
+   291→}
+   292→
+   293→function daysUntil(iso: string | null): number | null {
+   294→  if (!iso) return null
+   295→  const target = new Date(iso).getTime()
+   296→  if (Number.isNaN(target)) return null
+   297→  const diff = target - Date.now()
+   298→  return Math.ceil(diff / (1000 * 60 * 60 * 24))
+   299→}
+   300→
+   301→function formatDate(iso: string | null): string {
+   302→  if (!iso) return '—'
+   303→  const d = new Date(iso)
+   304→  if (Number.isNaN(d.getTime())) return '—'
+   305→  return d.toLocaleDateString('en-US', {
+   306→    year: 'numeric',
+   307→    month: 'short',
+   308→    day: 'numeric',
+   309→  })
+   310→}
+   311→
+   312→// Render answer text: line breaks + [KD-xxx] citations as small badges.
+   313→function renderAnswer(answer: string) {
+   314→  const lines = answer.split(/\n/)
+   315→  return lines.map((line, li) => {
+   316→    const parts: React.ReactNode[] = []
+   317→    const re = /\[(KD-[A-Za-z0-9-]+)\]/g
+   318→    let last = 0
+   319→    let m: RegExpExecArray | null
+   320→    while ((m = re.exec(line)) !== null) {
+   321→      if (m.index > last) {
+   322→        parts.push(line.slice(last, m.index))
+   323→      }
+   324→      parts.push(
+   325→        <Badge
+   326→          key={`${li}-${m.index}`}
+   327→          variant="outline"
+   328→          className="mx-0.5 px-1.5 py-0 h-4 text-[10px] font-mono bg-emerald-50 text-emerald-700 border-emerald-200 align-middle"
+   329→        >
+   330→          {m[1]}
+   331→        </Badge>,
+   332→      )
+   333→      last = m.index + m[0].length
+   334→    }
+   335→    if (last < line.length) parts.push(line.slice(last))
+   336→    return (
+   337→      <span key={li} className="block">
+   338→        {parts.length ? parts : line || '\u00A0'}
+   339→      </span>
+   340→    )
+   341→  })
+   342→}
+   343→
+   344→// ─── KPI Card ────────────────────────────────────────────────────────────────
+   345→
+   346→function KpiCard({
+   347→  label,
+   348→  value,
+   349→  icon: Icon,
+   350→  tint,
+   351→  hint,
+   352→}: {
+   353→  label: string
+   354→  value: number | string
+   355→  icon: typeof Users
+   356→  tint: string
+   357→  hint?: string
+   358→}) {
+   359→  return (
+   360→    <Card className="border-slate-200/70 shadow-sm">
+   361→      <CardContent className="p-4">
+   362→        <div className="flex items-start justify-between gap-2">
+   363→          <div>
+   364→            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+   365→              {label}
+   366→            </p>
+   367→            <p className="text-2xl font-bold text-slate-800 mt-1">{value}</p>
+   368→            {hint && <p className="text-[11px] text-slate-400 mt-0.5">{hint}</p>}
+   369→          </div>
+   370→          <div
+   371→            className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+   372→            style={{ backgroundColor: `${tint}1A`, color: tint }}
+   373→          >
+   374→            <Icon className="w-4.5 h-4.5" style={{ width: 18, height: 18 }} />
+   375→          </div>
+   376→        </div>
+   377→      </CardContent>
+   378→    </Card>
+   379→  )
+   380→}
+   381→
+   382→// ─── Employee Card ───────────────────────────────────────────────────────────
+   383→
+   384→function EmployeeCard({
+   385→  emp,
+   386→  onViewProfile,
+   387→}: {
+   388→  emp: Employee
+   389→  onViewProfile: (emp: Employee) => void
+   390→}) {
+   391→  const sStyle = SENIORITY_STYLE[emp.seniority] ?? SENIORITY_STYLE.junior
+   392→  const daysToRet = daysUntil(emp.retirementDate)
+   393→  const noDocsWarning =
+   394→    emp.seniority === 'retiring' && emp.knowledgeDocCount === 0
+   395→
+   396→  return (
+   397→    <Card className="border-slate-200/70 shadow-sm hover:shadow-md transition-shadow flex flex-col">
+   398→      <CardContent className="p-4 flex flex-col gap-3 flex-1">
+   399→        {/* Top: avatar + name + title */}
+   400→        <div className="flex items-start gap-3">
+   401→          <Avatar
+   402→            className="w-11 h-11 border-2 border-white shadow-sm shrink-0"
+   403→            style={{ backgroundColor: emp.avatarColor }}
+   404→          >
+   405→            <AvatarFallback
+   406→              className="text-white font-semibold text-sm"
+   407→              style={{ backgroundColor: emp.avatarColor }}
+   408→            >
+   409→              {initials(emp.name)}
+   410→            </AvatarFallback>
+   411→          </Avatar>
+   412→          <div className="min-w-0 flex-1">
+   413→            <p className="font-semibold text-slate-800 truncate">{emp.name}</p>
+   414→            <p className="text-xs text-slate-500 truncate">{emp.title}</p>
+   415→            <p className="text-[11px] text-slate-400 mt-0.5">
+   416→              {emp.department} · {emp.employeeId}
+   417→            </p>
+   418→          </div>
+   419→        </div>
+   420→
+   421→        {/* Seniority badge row */}
+   422→        <div className="flex flex-wrap items-center gap-1.5">
+   423→          <Badge
+   424→            variant="outline"
+   425→            className={`text-[10px] px-1.5 py-0 h-5 ${sStyle.badge}`}
+   426→          >
+   427→            <span className={`w-1.5 h-1.5 rounded-full mr-1 ${sStyle.dot}`} />
+   428→            {sStyle.label}
+   429→          </Badge>
+   430→          {emp.seniority === 'retiring' && daysToRet !== null && (
+   431→            <Tooltip>
+   432→              <TooltipTrigger asChild>
+   433→                <Badge
+   434→                  variant="outline"
+   435→                  className="text-[10px] px-1.5 py-0 h-5 bg-amber-50 text-amber-700 border-amber-200"
+   436→                >
+   437→                  <Clock className="w-2.5 h-2.5 mr-1" />
+   438→                  {daysToRet > 0
+   439→                    ? `Retiring in ${daysToRet}d`
+   440→                    : daysToRet === 0
+   441→                      ? 'Retiring today'
+   442→                      : 'Past retirement'}
+   443→                </Badge>
+   444→              </TooltipTrigger>
+   445→              <TooltipContent>
+   446→                Retirement date: {formatDate(emp.retirementDate)}
+   447→              </TooltipContent>
+   448→            </Tooltip>
+   449→          )}
+   450→        </div>
+   451→
+   452→        {/* Years */}
+   453→        <div className="flex items-center gap-1.5 text-xs text-slate-600">
+   454→          <Award className="w-3.5 h-3.5 text-slate-400" />
+   455→          <span className="font-medium">{emp.yearsExperience}</span>
+   456→          <span className="text-slate-400">years experience</span>
+   457→        </div>
+   458→
+   459→        {/* Specialties */}
+   460→        {emp.specialties.length > 0 && (
+   461→          <div className="flex flex-wrap gap-1">
+   462→            {emp.specialties.slice(0, 3).map((s, i) => (
+   463→              <Badge
+   464→                key={i}
+   465→                variant="secondary"
+   466→                className="text-[10px] px-1.5 py-0 h-5 bg-slate-100 text-slate-600 font-normal"
+   467→              >
+   468→                {s}
+   469→              </Badge>
+   470→            ))}
+   471→            {emp.specialties.length > 3 && (
+   472→              <Tooltip>
+   473→                <TooltipTrigger asChild>
+   474→                  <Badge
+   475→                    variant="outline"
+   476→                    className="text-[10px] px-1.5 py-0 h-5 bg-white text-slate-500"
+   477→                  >
+   478→                    +{emp.specialties.length - 3} more
+   479→                  </Badge>
+   480→                </TooltipTrigger>
+   481→                <TooltipContent className="max-w-[240px]">
+   482→                  {emp.specialties.slice(3).join(', ')}
+   483→                </TooltipContent>
+   484→              </Tooltip>
+   485→            )}
+   486→          </div>
+   487→        )}
+   488→
+   489→        <Separator className="bg-slate-100" />
+   490→
+   491→        {/* Doc count + mentor info */}
+   492→        <div className="flex flex-col gap-1.5 text-xs">
+   493→          <div className="flex items-center gap-1.5 text-slate-600">
+   494→            <FileText className="w-3.5 h-3.5 text-emerald-500" />
+   495→            <span>
+   496→              <span className="font-semibold">{emp.knowledgeDocCount}</span>{' '}
+   497→              document{emp.knowledgeDocCount === 1 ? '' : 's'} authored
+   498→            </span>
+   499→          </div>
+   500→          {emp.mentor && (
+   501→            <div className="flex items-center gap-1.5 text-slate-500">
+   502→              <UserCheck className="w-3.5 h-3.5 text-violet-500" />
+   503→              <span className="truncate">
+   504→                Mentor: <span className="text-slate-700">{emp.mentor.name}</span>
+   505→              </span>
+   506→            </div>
+   507→          )}
+   508→          {emp.mentees.length > 0 && (
+   509→            <div className="flex items-start gap-1.5 text-slate-500">
+   510→              <Users className="w-3.5 h-3.5 text-teal-500 mt-0.5" />
+   511→              <span className="truncate">
+   512→                Mentoring:{' '}
+   513→                <span className="text-slate-700">
+   514→                  {emp.mentees.map((m) => m.name).join(', ')}
+   515→                </span>
+   516→              </span>
+   517→            </div>
+   518→          )}
+   519→        </div>
+   520→
+   521→        {/* No-knowledge warning */}
+   522→        {noDocsWarning && (
+   523→          <div className="flex items-center gap-1.5 text-[11px] font-medium text-red-700 bg-red-50 border border-red-200 rounded-md px-2 py-1.5">
+   524→            <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+   525→            No knowledge captured yet
+   526→          </div>
+   527→        )}
+   528→
+   529→        <div className="mt-auto pt-1">
+   530→          <Button
+   531→            variant="outline"
+   532→            size="sm"
+   533→            className="w-full h-8 text-xs"
+   534→            onClick={() => onViewProfile(emp)}
+   535→          >
+   536→            <UserCircle2 className="w-3.5 h-3.5 mr-1" />
+   537→            View Profile
+   538→          </Button>
+   539→        </div>
+   540→      </CardContent>
+   541→    </Card>
+   542→  )
+   543→}
+   544→
+   545→// ─── Employee Profile Dialog ─────────────────────────────────────────────────
+   546→
+   547→function EmployeeProfileDialog({
+   548→  emp,
+   549→  open,
+   550→  onOpenChange,
+   551→}: {
+   552→  emp: Employee | null
+   553→  open: boolean
+   554→  onOpenChange: (v: boolean) => void
+   555→}) {
+   556→  const [docs, setDocs] = useState<KnowledgeDoc[]>([])
+   557→  const [loadingDocs, setLoadingDocs] = useState(false)
+   558→
+   559→  useEffect(() => {
+   560→    if (!emp || !open) {
+   561→      setDocs([])
+   562→      return
+   563→    }
+   564→    let cancelled = false
+   565→    setLoadingDocs(true)
+   566→    fetch(`/api/knowledge/documents?authorId=${encodeURIComponent(emp.id)}`)
+   567→      .then(async (r) => {
+   568→        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+   569→        const json: KnowledgeDocsResponse = await r.json()
+   570→        if (!cancelled) setDocs(json.documents)
+   571→      })
+   572→      .catch((e) => {
+   573→        console.error(e)
+   574→        if (!cancelled) toast.error('Failed to load knowledge docs')
+   575→      })
+   576→      .finally(() => {
+   577→        if (!cancelled) setLoadingDocs(false)
+   578→      })
+   579→    return () => {
+   580→      cancelled = true
+   581→    }
+   582→  }, [emp, open])
+   583→
+   584→  if (!emp) return null
+   585→  const sStyle = SENIORITY_STYLE[emp.seniority] ?? SENIORITY_STYLE.junior
+   586→
+   587→  return (
+   588→    <Dialog open={open} onOpenChange={onOpenChange}>
+   589→      <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
+   590→        <DialogHeader>
+   591→          <div className="flex items-start gap-3">
+   592→            <Avatar
+   593→              className="w-14 h-14 border-2 border-white shadow shrink-0"
+   594→              style={{ backgroundColor: emp.avatarColor }}
+   595→            >
+   596→              <AvatarFallback
+   597→                className="text-white font-bold"
+   598→                style={{ backgroundColor: emp.avatarColor }}
+   599→              >
+   600→                {initials(emp.name)}
+   601→              </AvatarFallback>
+   602→            </Avatar>
+   603→            <div className="min-w-0 flex-1">
+   604→              <DialogTitle className="text-lg">{emp.name}</DialogTitle>
+   605→              <DialogDescription className="text-sm">
+   606→                {emp.title} · {emp.department} · {emp.employeeId}
+   607→              </DialogDescription>
+   608→              <div className="flex flex-wrap items-center gap-1.5 mt-2">
+   609→                <Badge
+   610→                  variant="outline"
+   611→                  className={`text-[10px] px-1.5 py-0 h-5 ${sStyle.badge}`}
+   612→                >
+   613→                  <span
+   614→                    className={`w-1.5 h-1.5 rounded-full mr-1 ${sStyle.dot}`}
+   615→                  />
+   616→                  {sStyle.label}
+   617→                </Badge>
+   618→                <Badge
+   619→                  variant="outline"
+   620→                  className="text-[10px] px-1.5 py-0 h-5 bg-slate-50 text-slate-600 border-slate-200"
+   621→                >
+   622→                  <Award className="w-2.5 h-2.5 mr-1" />
+   623→                  {emp.yearsExperience} yrs
+   624→                </Badge>
+   625→                {emp.retirementDate && (
+   626→                  <Badge
+   627→                    variant="outline"
+   628→                    className="text-[10px] px-1.5 py-0 h-5 bg-amber-50 text-amber-700 border-amber-200"
+   629→                  >
+   630→                    <Calendar className="w-2.5 h-2.5 mr-1" />
+   631→                    Retires {formatDate(emp.retirementDate)}
+   632→                  </Badge>
+   633→                )}
+   634→              </div>
+   635→            </div>
+   636→          </div>
+   637→        </DialogHeader>
+   638→
+   639→        <ScrollArea className="flex-1 max-h-[60vh] pr-2">
+   640→          <div className="space-y-4 pr-2">
+   641→            {/* Bio */}
+   642→            {emp.bio && (
+   643→              <div>
+   644→                <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-1">
+   645→                  Biography
+   646→                </p>
+   647→                <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">
+   648→                  {emp.bio}
+   649→                </p>
+   650→              </div>
+   651→            )}
+   652→
+   653→            {/* Specialties */}
+   654→            {emp.specialties.length > 0 && (
+   655→              <div>
+   656→                <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-1.5">
+   657→                  Specialties
+   658→                </p>
+   659→                <div className="flex flex-wrap gap-1.5">
+   660→                  {emp.specialties.map((s, i) => (
+   661→                    <Badge
+   662→                      key={i}
+   663→                      className="text-[11px] bg-emerald-50 text-emerald-700 border border-emerald-200 font-normal"
+   664→                    >
+   665→                      {s}
+   666→                    </Badge>
+   667→                  ))}
+   668→                </div>
+   669→              </div>
+   670→            )}
+   671→
+   672→            {/* Certifications */}
+   673→            {emp.certifications.length > 0 && (
+   674→              <div>
+   675→                <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-1.5">
+   676→                  Certifications
+   677→                </p>
+   678→                <div className="flex flex-wrap gap-1.5">
+   679→                  {emp.certifications.map((c, i) => (
+   680→                    <Badge
+   681→                      key={i}
+   682→                      className="text-[11px] bg-violet-50 text-violet-700 border border-violet-200 font-normal"
+   683→                    >
+   684→                      <Award className="w-2.5 h-2.5 mr-1" />
+   685→                      {c}
+   686→                    </Badge>
+   687→                  ))}
+   688→                </div>
+   689→              </div>
+   690→            )}
+   691→
+   692→            {/* Mentor / Mentees */}
+   693→            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+   694→              {emp.mentor && (
+   695→                <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-3">
+   696→                  <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-1">
+   697→                    Mentor
+   698→                  </p>
+   699→                  <p className="text-sm font-medium text-slate-800">
+   700→                    {emp.mentor.name}
+   701→                  </p>
+   702→                  <p className="text-xs text-slate-500">{emp.mentor.title}</p>
+   703→                </div>
+   704→              )}
+   705→              {emp.mentees.length > 0 && (
+   706→                <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-3">
+   707→                  <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-1">
+   708→                    Mentoring ({emp.mentees.length})
+   709→                  </p>
+   710→                  <ul className="space-y-0.5">
+   711→                    {emp.mentees.map((m) => (
+   712→                      <li key={m.employeeId} className="text-xs">
+   713→                        <span className="font-medium text-slate-700">
+   714→                          {m.name}
+   715→                        </span>
+   716→                        <span className="text-slate-400"> · {m.title}</span>
+   717→                      </li>
+   718→                    ))}
+   719→                  </ul>
+   720→                </div>
+   721→              )}
+   722→            </div>
+   723→
+   724→            {/* Knowledge docs */}
+   725→            <div>
+   726→              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-2">
+   727→                Authored Knowledge Documents ({emp.knowledgeDocCount})
+   728→              </p>
+   729→              {loadingDocs ? (
+   730→                <div className="flex items-center gap-2 text-xs text-slate-500 py-3">
+   731→                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading…
+   732→                </div>
+   733→              ) : docs.length === 0 ? (
+   734→                <div className="flex items-center gap-2 text-xs text-slate-500 py-3 px-3 bg-slate-50 rounded-md border border-slate-100">
+   735→                  <FileText className="w-3.5 h-3.5 text-slate-400" />
+   736→                  No published documents authored.
+   737→                </div>
+   738→              ) : (
+   739→                <ul className="space-y-1.5">
+   740→                  {docs.map((d) => {
+   741→                    const cMeta = CATEGORY_META[d.category] ?? CATEGORY_META.procedure
+   742→                    const crit = CRITICALITY_STYLE[d.criticality] ?? CRITICALITY_STYLE.standard
+   743→                    return (
+   744→                      <li
+   745→                        key={d.id}
+   746→                        className="flex items-start gap-2 rounded-md border border-slate-200 bg-white px-3 py-2"
+   747→                      >
+   748→                        <cMeta.icon className="w-3.5 h-3.5 text-slate-400 mt-0.5 shrink-0" />
+   749→                        <div className="min-w-0 flex-1">
+   750→                          <p className="text-sm font-medium text-slate-800 leading-snug">
+   751→                            {d.title}
+   752→                          </p>
+   753→                          <div className="flex flex-wrap items-center gap-1.5 mt-1">
+   754→                            <Badge
+   755→                              variant="outline"
+   756→                              className={`text-[10px] px-1.5 py-0 h-4 ${crit.badge}`}
+   757→                            >
+   758→                              {d.documentId}
+   759→                            </Badge>
+   760→                            <Badge
+   761→                              variant="outline"
+   762→                              className="text-[10px] px-1.5 py-0 h-4 bg-slate-50 text-slate-600 border-slate-200"
+   763→                            >
+   764→                              {cMeta.label}
+   765→                            </Badge>
+   766→                          </div>
+   767→                        </div>
+   768→                      </li>
+   769→                    )
+   770→                  })}
+   771→                </ul>
+   772→              )}
+   773→            </div>
+   774→          </div>
+   775→        </ScrollArea>
+   776→      </DialogContent>
+   777→    </Dialog>
+   778→  )
+   779→}
+   780→
+   781→// ─── Document Row (Library tab) ──────────────────────────────────────────────
+   782→
+   783→function DocumentRow({ doc, onOpen }: { doc: KnowledgeDoc; onOpen: () => void }) {
+   784→  const cMeta = CATEGORY_META[doc.category] ?? CATEGORY_META.procedure
+   785→  const crit = CRITICALITY_STYLE[doc.criticality] ?? CRITICALITY_STYLE.standard
+   786→  const author = doc.author
+   787→  const authorRetiring =
+   788→    author?.seniority === 'retiring' ||
+   789→    (author?.retirementDate && daysUntil(author.retirementDate) !== null && (daysUntil(author.retirementDate) ?? 0) < 365)
+   790→
+   791→  return (
+   792→    <button
+   793→      onClick={onOpen}
+   794→      className="w-full text-left rounded-lg border border-slate-200/80 bg-white hover:border-slate-300 hover:shadow-sm transition-all p-3.5 group"
+   795→    >
+   796→      <div className="flex items-start gap-3">
+   797→        <div
+   798→          className="w-8 h-8 rounded-md flex items-center justify-center shrink-0 mt-0.5"
+   799→          style={{ backgroundColor: `${crit.dot}1A`, color: crit.dot.replace('bg-', '').includes('red') ? '#EF4444' : crit.dot.includes('amber') ? '#F59E0B' : '#64748B' }}
+   800→        >
+   801→          <cMeta.icon className="w-4 h-4" />
+   802→        </div>
+   803→        <div className="min-w-0 flex-1">
+   804→          <div className="flex items-start justify-between gap-2">
+   805→            <p className="text-sm font-semibold text-slate-800 group-hover:text-slate-900 leading-snug">
+   806→              {doc.title}
+   807→            </p>
+   808→            <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-slate-500 transition-colors shrink-0 mt-0.5" />
+   809→          </div>
+   810→          <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+   811→            <Badge
+   812→              variant="outline"
+   813→              className={`text-[10px] px-1.5 py-0 h-5 ${crit.badge}`}
+   814→            >
+   815→              <span className={`w-1.5 h-1.5 rounded-full mr-1 ${crit.dot}`} />
+   816→              {crit.label}
+   817→            </Badge>
+   818→            <Badge
+   819→              variant="outline"
+   820→              className="text-[10px] px-1.5 py-0 h-5 bg-slate-50 text-slate-600 border-slate-200 font-normal"
+   821→            >
+   822→              {cMeta.label}
+   823→            </Badge>
+   824→            <span className="text-[11px] text-slate-400 font-mono">{doc.documentId}</span>
+   825→          </div>
+   826→          <p className="text-xs text-slate-500 mt-1.5 line-clamp-2 leading-relaxed">
+   827→            {doc.summary}
+   828→          </p>
+   829→          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2">
+   830→            {author && (
+   831→              <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+   832→                <Avatar
+   833→                  className="w-4 h-4"
+   834→                  style={{ backgroundColor: author.avatarColor }}
+   835→                >
+   836→                  <AvatarFallback
+   837→                    className="text-[8px] text-white font-semibold"
+   838→                    style={{ backgroundColor: author.avatarColor }}
+   839→                  >
+   840→                    {initials(author.name)}
+   841→                  </AvatarFallback>
+   842→                </Avatar>
+   843→                <span className="font-medium text-slate-700">{author.name}</span>
+   844→                <span className="text-slate-400">· {author.title}</span>
+   845→                {authorRetiring && (
+   846→                  <Badge
+   847→                    variant="outline"
+   848→                    className="text-[9px] px-1 py-0 h-4 bg-amber-50 text-amber-700 border-amber-200 ml-0.5"
+   849→                  >
+   850→                    Author retiring
+   851→                  </Badge>
+   852→                )}
+   853→              </div>
+   854→            )}
+   855→          </div>
+   856→          {/* Tags */}
+   857→          {doc.tags.length > 0 && (
+   858→            <div className="flex flex-wrap gap-1 mt-2">
+   859→              {doc.tags.slice(0, 5).map((t, i) => (
+   860→                <Badge
+   861→                  key={i}
+   862→                  variant="secondary"
+   863→                  className="text-[10px] px-1.5 py-0 h-4 bg-slate-100 text-slate-500 font-normal"
+   864→                >
+   865→                  {t}
+   866→                </Badge>
+   867→              ))}
+   868→              {doc.tags.length > 5 && (
+   869→                <span className="text-[10px] text-slate-400">
+   870→                  +{doc.tags.length - 5}
+   871→                </span>
+   872→              )}
+   873→            </div>
+   874→          )}
+   875→          <div className="flex items-center gap-3 mt-2 text-[11px] text-slate-400">
+   876→            <span className="flex items-center gap-1">
+   877→              <Eye className="w-3 h-3" /> {doc.viewCount} views
+   878→            </span>
+   879→            <span className="flex items-center gap-1">
+   880→              <ThumbsUp className="w-3 h-3" /> {doc.helpfulCount} helpful
+   881→            </span>
+   882→            <span className="flex items-center gap-1">
+   883→              <Calendar className="w-3 h-3" /> {formatDate(doc.publishedAt)}
+   884→            </span>
+   885→          </div>
+   886→        </div>
+   887→      </div>
+   888→    </button>
+   889→  )
+   890→}
+   891→
+   892→// ─── Document Content Dialog ─────────────────────────────────────────────────
+   893→
+   894→function DocumentDialog({
+   895→  doc,
+   896→  open,
+   897→  onOpenChange,
+   898→}: {
+   899→  doc: KnowledgeDoc | null
+   900→  open: boolean
+   901→  onOpenChange: (v: boolean) => void
+   902→}) {
+   903→  if (!doc) return null
+   904→  const cMeta = CATEGORY_META[doc.category] ?? CATEGORY_META.procedure
+   905→  const crit = CRITICALITY_STYLE[doc.criticality] ?? CRITICALITY_STYLE.standard
+   906→  const author = doc.author
+   907→  const authorRetiring =
+   908→    author?.seniority === 'retiring' ||
+   909→    (author?.retirementDate && daysUntil(author.retirementDate) !== null && (daysUntil(author.retirementDate) ?? 0) < 365)
+   910→
+   911→  return (
+   912→    <Dialog open={open} onOpenChange={onOpenChange}>
+   913→      <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
+   914→        <DialogHeader>
+   915→          <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
+   916→            <Badge
+   917→              variant="outline"
+   918→              className={`text-[10px] px-1.5 py-0 h-5 ${crit.badge}`}
+   919→            >
+   920→              <span className={`w-1.5 h-1.5 rounded-full mr-1 ${crit.dot}`} />
+   921→              {crit.label}
+   922→            </Badge>
+   923→            <Badge
+   924→              variant="outline"
+   925→              className="text-[10px] px-1.5 py-0 h-5 bg-slate-50 text-slate-600 border-slate-200 font-normal"
+   926→            >
+   927→              <cMeta.icon className="w-2.5 h-2.5 mr-1" />
+   928→              {cMeta.label}
+   929→            </Badge>
+   930→            <span className="text-[11px] text-slate-400 font-mono">{doc.documentId}</span>
+   931→          </div>
+   932→          <DialogTitle className="text-lg leading-tight pr-6">{doc.title}</DialogTitle>
+   933→          <DialogDescription className="text-sm mt-1">{doc.summary}</DialogDescription>
+   934→          {author && (
+   935→            <div className="flex flex-wrap items-center gap-2 mt-3">
+   936→              <Avatar
+   937→                className="w-6 h-6"
+   938→                style={{ backgroundColor: author.avatarColor }}
+   939→              >
+   940→                <AvatarFallback
+   941→                  className="text-[10px] text-white font-semibold"
+   942→                  style={{ backgroundColor: author.avatarColor }}
+   943→                >
+   944→                  {initials(author.name)}
+   945→                </AvatarFallback>
+   946→              </Avatar>
+   947→              <span className="text-xs text-slate-600">
+   948→                <span className="font-semibold text-slate-800">{author.name}</span>
+   949→                <span className="text-slate-400"> · {author.title}</span>
+   950→              </span>
+   951→              <Badge
+   952→                variant="outline"
+   953→                className={`text-[10px] px-1.5 py-0 h-5 ${SENIORITY_STYLE[author.seniority]?.badge ?? SENIORITY_STYLE.junior.badge}`}
+   954→              >
+   955→                {SENIORITY_STYLE[author.seniority]?.label ?? author.seniority}
+   956→              </Badge>
+   957→              {authorRetiring && (
+   958→                <Badge
+   959→                  variant="outline"
+   960→                  className="text-[10px] px-1.5 py-0 h-5 bg-amber-50 text-amber-700 border-amber-200"
+   961→                >
+   962→                  <AlertTriangle className="w-2.5 h-2.5 mr-1" />
+   963→                  Author retiring
+   964→                </Badge>
+   965→              )}
+   966→              <span className="text-[11px] text-slate-400 ml-auto">
+   967→                {author.yearsExperience} yrs experience · {author.department}
+   968→              </span>
+   969→            </div>
+   970→          )}
+   971→        </DialogHeader>
+   972→
+   973→        <ScrollArea className="flex-1 max-h-[60vh] pr-2">
+   974→          <pre className="text-sm text-slate-700 whitespace-pre-wrap font-sans leading-relaxed">
+   975→            {doc.content}
+   976→          </pre>
+   977→        </ScrollArea>
+   978→
+   979→        <div className="flex items-center justify-between pt-3 border-t border-slate-100 mt-2">
+   980→          <div className="flex items-center gap-3 text-xs text-slate-500">
+   981→            <span className="flex items-center gap-1">
+   982→              <Eye className="w-3.5 h-3.5" /> {doc.viewCount} views
+   983→            </span>
+   984→            <span className="flex items-center gap-1">
+   985→              <ThumbsUp className="w-3.5 h-3.5" /> {doc.helpfulCount} helpful
+   986→            </span>
+   987→          </div>
+   988→          {doc.tags.length > 0 && (
+   989→            <div className="flex flex-wrap gap-1 justify-end max-w-[60%]">
+   990→              {doc.tags.slice(0, 6).map((t, i) => (
+   991→                <Badge
+   992→                  key={i}
+   993→                  variant="secondary"
+   994→                  className="text-[10px] px-1.5 py-0 h-4 bg-slate-100 text-slate-500 font-normal"
+   995→                >
+   996→                  {t}
+   997→                </Badge>
+   998→              ))}
+   999→            </div>
+  1000→          )}
+  1001→        </div>
+  1002→      </DialogContent>
+  1003→    </Dialog>
+  1004→  )
+  1005→}
+  1006→
+  1007→// ─── Main component ──────────────────────────────────────────────────────────
+  1008→
+  1009→export function WorkforceKnowledgePage() {
+  1010→  const [tab, setTab] = useState('directory')
+  1011→
+  1012→  // ─── Employees state (Tab 1) ───
+  1013→  const [employees, setEmployees] = useState<Employee[]>([])
+  1014→  const [departments, setDepartments] = useState<string[]>([])
+  1015→  const [empSummary, setEmpSummary] = useState<EmployeeSummary | null>(null)
+  1016→  const [empLoading, setEmpLoading] = useState(true)
+  1017→  const [seniorityFilter, setSeniorityFilter] = useState<string>('all')
+  1018→  const [departmentFilter, setDepartmentFilter] = useState<string>('all')
+  1019→  const [profileEmp, setProfileEmp] = useState<Employee | null>(null)
+  1020→  const [profileOpen, setProfileOpen] = useState(false)
+  1021→
+  1022→  // ─── Knowledge docs state (Tab 2) ───
+  1023→  const [docs, setDocs] = useState<KnowledgeDoc[]>([])
+  1024→  const [docSummary, setDocSummary] = useState<{
+  1025→    total: number
+  1026→    critical: number
+  1027→    byAuthor: Record<string, number>
+  1028→  } | null>(null)
+  1029→  const [docLoading, setDocLoading] = useState(true)
+  1030→  const [docSearch, setDocSearch] = useState('')
+  1031→  const [categoryFilter, setCategoryFilter] = useState<string>('all')
+  1032→  const [activeDoc, setActiveDoc] = useState<KnowledgeDoc | null>(null)
+  1033→  const [docDialogOpen, setDocDialogOpen] = useState(false)
+  1034→  const [docLoadingFull, setDocLoadingFull] = useState(false)
+  1035→
+  1036→  // ─── Ask Senior state (Tab 3) ───
+  1037→  const [question, setQuestion] = useState('')
+  1038→  const [askScope, setAskScope] = useState<string>('all')
+  1039→  const [askLoading, setAskLoading] = useState(false)
+  1040→  const [askResult, setAskResult] = useState<AskSeniorResponse | null>(null)
+  1041→
+  1042→  // ─── Onboarding state (Tab 4) ───
+  1043→  const [onbSeniorId, setOnbSeniorId] = useState<string>('')
+  1044→  const [onbLoading, setOnbLoading] = useState(false)
+  1045→  const [onbResult, setOnbResult] = useState<OnboardingResponse | null>(null)
+  1046→
+  1047→  // ─── Fetch employees ───
+  1048→  const fetchEmployees = useCallback(async () => {
+  1049→    setEmpLoading(true)
+  1050→    try {
+  1051→      const res = await fetch('/api/employees?seniority=all', { cache: 'no-store' })
+  1052→      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  1053→      const json: EmployeesResponse = await res.json()
+  1054→      setEmployees(json.employees)
+  1055→      setDepartments(json.departments)
+  1056→      setEmpSummary(json.summary)
+  1057→    } catch (e) {
+  1058→      console.error(e)
+  1059→      toast.error('Failed to load employees')
+  1060→    } finally {
+  1061→      setEmpLoading(false)
+  1062→    }
+  1063→  }, [])
+  1064→
+  1065→  // ─── Fetch documents ───
+  1066→  const fetchDocs = useCallback(async () => {
+  1067→    setDocLoading(true)
+  1068→    try {
+  1069→      const params = new URLSearchParams()
+  1070→      if (categoryFilter !== 'all') params.set('category', categoryFilter)
+  1071→      if (docSearch.trim()) params.set('q', docSearch.trim())
+  1072→      const url = `/api/knowledge/documents?${params.toString()}`
+  1073→      const res = await fetch(url, { cache: 'no-store' })
+  1074→      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  1075→      const json: KnowledgeDocsResponse = await res.json()
+  1076→      setDocs(json.documents)
+  1077→      setDocSummary(json.summary)
+  1078→    } catch (e) {
+  1079→      console.error(e)
+  1080→      toast.error('Failed to load knowledge documents')
+  1081→    } finally {
+  1082→      setDocLoading(false)
+  1083→    }
+  1084→  }, [categoryFilter, docSearch])
+  1085→
+  1086→  useEffect(() => {
+  1087→    fetchEmployees()
+  1088→  }, [fetchEmployees])
+  1089→
+  1090→  useEffect(() => {
+  1091→    fetchDocs()
+  1092→  }, [fetchDocs])
+  1093→
+  1094→  // ─── Derived: filtered employees ───
+  1095→  const filteredEmployees = useMemo(() => {
+  1096→    return employees.filter((e) => {
+  1097→      if (seniorityFilter !== 'all' && e.seniority !== seniorityFilter) return false
+  1098→      if (departmentFilter !== 'all' && e.department !== departmentFilter) return false
+  1099→      return true
+  1100→    })
+  1101→  }, [employees, seniorityFilter, departmentFilter])
+  1102→
+  1103→  // ─── Derived: senior-picker options (retiring + senior) ───
+  1104→  const seniorPickerOptions = useMemo(
+  1105→    () =>
+  1106→      employees.filter(
+  1107→        (e) => e.seniority === 'retiring' || e.seniority === 'senior',
+  1108→      ),
+  1109→    [employees],
+  1110→  )
+  1111→
+  1112→  // ─── Actions ───
+  1113→  const openProfile = (emp: Employee) => {
+  1114→    setProfileEmp(emp)
+  1115→    setProfileOpen(true)
+  1116→  }
+  1117→
+  1118→  const openDoc = async (doc: KnowledgeDoc) => {
+  1119→    setActiveDoc(doc)
+  1120→    setDocDialogOpen(true)
+  1121→    // Fetch full content (bumps viewCount)
+  1122→    setDocLoadingFull(true)
+  1123→    try {
+  1124→      const res = await fetch(
+  1125→        `/api/knowledge/documents?id=${encodeURIComponent(doc.documentId)}`,
+  1126→      )
+  1127→      if (res.ok) {
+  1128→        const json: KnowledgeDocSingleResponse = await res.json()
+  1129→        setActiveDoc(json.document)
+  1130→        // Update the list view count locally
+  1131→        setDocs((prev) =>
+  1132→          prev.map((d) =>
+  1133→            d.id === json.document.id
+  1134→              ? { ...d, viewCount: json.document.viewCount }
+  1135→              : d,
+  1136→          ),
+  1137→        )
+  1138→      }
+  1139→    } catch (e) {
+  1140→      console.error(e)
+  1141→    } finally {
+  1142→      setDocLoadingFull(false)
+  1143→    }
+  1144→  }
+  1145→
+  1146→  const askQuestion = async (q?: string) => {
+  1147→    const query = (q ?? question).trim()
+  1148→    if (!query) {
+  1149→      toast.error('Please enter a question')
+  1150→      return
+  1151→    }
+  1152→    if (q) setQuestion(q)
+  1153→    setAskLoading(true)
+  1154→    setAskResult(null)
+  1155→    try {
+  1156→      const res = await fetch('/api/knowledge/ask-senior', {
+  1157→        method: 'POST',
+  1158→        headers: { 'Content-Type': 'application/json' },
+  1159→        body: JSON.stringify({
+  1160→          question: query,
+  1161→          seniorEmployeeId: askScope === 'all' ? null : askScope,
+  1162→        }),
+  1163→      })
+  1164→      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  1165→      const json: AskSeniorResponse = await res.json()
+  1166→      setAskResult(json)
+  1167→    } catch (e) {
+  1168→      console.error(e)
+  1169→      toast.error('Failed to get answer from senior')
+  1170→    } finally {
+  1171→      setAskLoading(false)
+  1172→    }
+  1173→  }
+  1174→
+  1175→  const generateOnboarding = async () => {
+  1176→    if (!onbSeniorId) {
+  1177→      toast.error('Please select a senior employee')
+  1178→      return
+  1179→    }
+  1180→    setOnbLoading(true)
+  1181→    setOnbResult(null)
+  1182→    try {
+  1183→      const res = await fetch('/api/knowledge/onboarding', {
+  1184→        method: 'POST',
+  1185→        headers: { 'Content-Type': 'application/json' },
+  1186→        body: JSON.stringify({ seniorEmployeeId: onbSeniorId }),
+  1187→      })
+  1188→      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  1189→      const json: OnboardingResponse = await res.json()
+  1190→      setOnbResult(json)
+  1191→    } catch (e) {
+  1192→      console.error(e)
+  1193→      toast.error('Failed to generate onboarding plan')
+  1194→    } finally {
+  1195→      setOnbLoading(false)
+  1196→    }
+  1197→  }
+  1198→
+  1199→  const suggestedQuestions = [
+  1200→    'How do I qualify a thruster bearing for Lloyd\u2019s Register?',
+  1201→    'What\u2019s the procedure for an emergency hydraulic valve swap?',
+  1202→    'How do I diagnose a heat exchanger weld crack?',
+  1203→    'What powder reuse limits should I follow?',
+  1204→  ]
+  1205→
+  1206→  return (
+  1207→    <TooltipProvider delayDuration={150}>
+  1208→      <div className="p-4 sm:p-6 space-y-5 max-w-7xl mx-auto">
+  1209→        {/* Header card */}
+  1210→        <Card className="border-slate-200/70 shadow-sm overflow-hidden">
+  1211→          <CardContent className="p-5 sm:p-6">
+  1212→            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+  1213→              <div className="flex items-center gap-3">
+  1214→                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-100">
+  1215→                  <BookOpen className="w-6 h-6 text-white" />
+  1216→                </div>
+  1217→                <div>
+  1218→                  <h2 className="text-xl font-bold text-slate-800">
+  1219→                    Workforce Knowledge &amp; Memory
+  1220→                  </h2>
+  1221→                  <p className="text-sm text-slate-500">
+  1222→                    Capturing institutional knowledge from senior experts before
+  1223→                    it walks out the door.
+  1224→                  </p>
+  1225→                </div>
+  1226→              </div>
+  1227→              <Button
+  1228→                variant="outline"
+  1229→                size="sm"
+  1230→                onClick={() => {
+  1231→                  fetchEmployees()
+  1232→                  fetchDocs()
+  1233→                }}
+  1234→                disabled={empLoading || docLoading}
+  1235→                className="shrink-0"
+  1236→              >
+  1237→                <RefreshCw
+  1238→                  className={`w-4 h-4 mr-1.5 ${empLoading || docLoading ? 'animate-spin' : ''}`}
+  1239→                />
+  1240→                Refresh
+  1241→              </Button>
+  1242→            </div>
+  1243→
+  1244→            {/* Interview-grounding quote banner */}
+  1245→            <div className="flex items-start gap-3 mt-4 p-3 bg-violet-50/60 border border-violet-100 rounded-lg">
+  1246→              <Quote className="w-4 h-4 text-violet-500 mt-0.5 shrink-0" />
+  1247→              <p className="text-xs text-violet-900 leading-relaxed italic">
+  1248→                &ldquo;Knowledge Capture / Workforce Memory&hellip; critical
+  1249→                assembly procedures existed only in the heads of experienced
+  1250→                technicians who had retired or passed away.&rdquo;
+  1251→                <span className="not-italic font-semibold ml-1">
+  1252→                  — Jordan Cumming, Interview #10
+  1253→                </span>
+  1254→              </p>
+  1255→            </div>
+  1256→          </CardContent>
+  1257→        </Card>
+  1258→
+  1259→        {/* Tabs */}
+  1260→        <Tabs value={tab} onValueChange={setTab}>
+  1261→          <div className="overflow-x-auto -mx-1 px-1 pb-1">
+  1262→            <TabsList className="h-10">
+  1263→              <TabsTrigger value="directory" className="px-3">
+  1264→                <Users className="w-3.5 h-3.5" />
+  1265→                <span className="hidden sm:inline">Employee Directory</span>
+  1266→                <span className="sm:hidden">Directory</span>
+  1267→              </TabsTrigger>
+  1268→              <TabsTrigger value="library" className="px-3">
+  1269→                <BookOpen className="w-3.5 h-3.5" />
+  1270→                <span className="hidden sm:inline">Knowledge Library</span>
+  1271→                <span className="sm:hidden">Library</span>
+  1272→              </TabsTrigger>
+  1273→              <TabsTrigger value="ask" className="px-3">
+  1274→                <MessageCircleQuestion className="w-3.5 h-3.5" />
+  1275→                <span className="hidden sm:inline">Ask a Senior</span>
+  1276→                <span className="sm:hidden">Ask</span>
+  1277→              </TabsTrigger>
+  1278→              <TabsTrigger value="onboarding" className="px-3">
+  1279→                <GraduationCap className="w-3.5 h-3.5" />
+  1280→                <span className="hidden sm:inline">Onboarding Generator</span>
+  1281→                <span className="sm:hidden">Onboarding</span>
+  1282→              </TabsTrigger>
+  1283→            </TabsList>
+  1284→          </div>
+  1285→
+  1286→          {/* ─── Tab 1: Employee Directory ─── */}
+  1287→          <TabsContent value="directory" className="space-y-4 mt-4">
+  1288→            {empSummary && (
+  1289→              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+  1290→                <KpiCard
+  1291→                  label="Total Employees"
+  1292→                  value={empSummary.total}
+  1293→                  icon={Users}
+  1294→                  tint="#64748B"
+  1295→                />
+  1296→                <KpiCard
+  1297→                  label="Retiring Soon"
+  1298→                  value={empSummary.retiring}
+  1299→                  icon={Clock}
+  1300→                  tint="#F59E0B"
+  1301→                  hint="Departing within 1 year"
+  1302→                />
+  1303→                <KpiCard
+  1304→                  label="Seniors"
+  1305→                  value={empSummary.senior}
+  1306→                  icon={Award}
+  1307→                  tint="#10B981"
+  1308→                />
+  1309→                <KpiCard
+  1310→                  label="Juniors"
+  1311→                  value={empSummary.junior}
+  1312→                  icon={GraduationCap}
+  1313→                  tint="#8B5CF6"
+  1314→                />
+  1315→                <KpiCard
+  1316→                  label="At-Risk Knowledge"
+  1317→                  value={empSummary.atRiskDocs}
+  1318→                  icon={AlertTriangle}
+  1319→                  tint={empSummary.atRiskDocs > 0 ? '#EF4444' : '#64748B'}
+  1320→                  hint={
+  1321→                    empSummary.atRiskDocs > 0
+  1322→                      ? 'Retiring with 0 docs'
+  1323→                      : 'All retiring staff documented'
+  1324→                  }
+  1325→                />
+  1326→              </div>
+  1327→            )}
+  1328→
+  1329→            {/* Filter row */}
+  1330→            <Card className="border-slate-200/70 shadow-sm">
+  1331→              <CardContent className="p-3 sm:p-4">
+  1332→                <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+  1333→                  <div className="flex items-center gap-2">
+  1334→                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">
+  1335→                      Seniority
+  1336→                    </span>
+  1337→                    <div className="flex flex-wrap gap-1">
+  1338→                      {[
+  1339→                        { v: 'all', label: 'All' },
+  1340→                        { v: 'retiring', label: 'Retiring' },
+  1341→                        { v: 'senior', label: 'Senior' },
+  1342→                        { v: 'junior', label: 'Junior' },
+  1343→                      ].map((opt) => (
+  1344→                        <Button
+  1345→                          key={opt.v}
+  1346→                          size="sm"
+  1347→                          variant={
+  1348→                            seniorityFilter === opt.v ? 'default' : 'outline'
+  1349→                          }
+  1350→                          className={`h-7 text-xs ${
+  1351→                            seniorityFilter === opt.v
+  1352→                              ? 'bg-slate-800 text-white hover:bg-slate-700'
+  1353→                              : ''
+  1354→                          }`}
+  1355→                          onClick={() => setSeniorityFilter(opt.v)}
+  1356→                        >
+  1357→                          {opt.label}
+  1358→                        </Button>
+  1359→                      ))}
+  1360→                    </div>
+  1361→                  </div>
+  1362→                  <Separator
+  1363→                    orientation="vertical"
+  1364→                    className="hidden sm:block h-6 bg-slate-200"
+  1365→                  />
+  1366→                  <div className="flex items-center gap-2 sm:ml-auto">
+  1367→                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">
+  1368→                      Department
+  1369→                    </span>
+  1370→                    <Select
+  1371→                      value={departmentFilter}
+  1372→                      onValueChange={setDepartmentFilter}
+  1373→                    >
+  1374→                      <SelectTrigger className="h-8 w-[180px] text-xs">
+  1375→                        <SelectValue placeholder="All departments" />
+  1376→                      </SelectTrigger>
+  1377→                      <SelectContent>
+  1378→                        <SelectItem value="all">All departments</SelectItem>
+  1379→                        {departments.map((d) => (
+  1380→                          <SelectItem key={d} value={d}>
+  1381→                            {d}
+  1382→                          </SelectItem>
+  1383→                        ))}
+  1384→                      </SelectContent>
+  1385→                    </Select>
+  1386→                  </div>
+  1387→                </div>
+  1388→              </CardContent>
+  1389→            </Card>
+  1390→
+  1391→            {/* Employee grid */}
+  1392→            {empLoading ? (
+  1393→              <div className="flex items-center justify-center py-16 text-slate-500 text-sm">
+  1394→                <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Loading
+  1395→                employees…
+  1396→              </div>
+  1397→            ) : filteredEmployees.length === 0 ? (
+  1398→              <Card className="border-dashed border-slate-200">
+  1399→                <CardContent className="p-8 text-center text-sm text-slate-500">
+  1400→                  <Users className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+  1401→                  No employees match the current filters.
+  1402→                </CardContent>
+  1403→              </Card>
+  1404→            ) : (
+  1405→              <>
+  1406→                <p className="text-xs text-slate-500">
+  1407→                  Showing{' '}
+  1408→                  <span className="font-semibold text-slate-700">
+  1409→                    {filteredEmployees.length}
+  1410→                  </span>{' '}
+  1411→                  of {employees.length} employees
+  1412→                </p>
+  1413→                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+  1414→                  {filteredEmployees.map((emp) => (
+  1415→                    <EmployeeCard
+  1416→                      key={emp.id}
+  1417→                      emp={emp}
+  1418→                      onViewProfile={openProfile}
+  1419→                    />
+  1420→                  ))}
+  1421→                </div>
+  1422→              </>
+  1423→            )}
+  1424→          </TabsContent>
+  1425→
+  1426→          {/* ─── Tab 2: Knowledge Library ─── */}
+  1427→          <TabsContent value="library" className="space-y-4 mt-4">
+  1428→            <Card className="border-slate-200/70 shadow-sm">
+  1429→              <CardContent className="p-3 sm:p-4">
+  1430→                <div className="flex flex-col sm:flex-row gap-3">
+  1431→                  <div className="relative flex-1">
+  1432→                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+  1433→                    <Input
+  1434→                      placeholder="Search by title, summary, or tag…"
+  1435→                      value={docSearch}
+  1436→                      onChange={(e) => setDocSearch(e.target.value)}
+  1437→                      className="pl-8 h-9 text-sm"
+  1438→                    />
+  1439→                  </div>
+  1440→                  <Select
+  1441→                    value={categoryFilter}
+  1442→                    onValueChange={setCategoryFilter}
+  1443→                  >
+  1444→                    <SelectTrigger className="h-9 w-full sm:w-[220px] text-sm">
+  1445→                      <SelectValue placeholder="All categories" />
+  1446→                    </SelectTrigger>
+  1447→                    <SelectContent>
+  1448→                      <SelectItem value="all">All categories</SelectItem>
+  1449→                      <SelectItem value="sop">SOP</SelectItem>
+  1450→                      <SelectItem value="lesson_learned">
+  1451→                        Lesson Learned
+  1452→                      </SelectItem>
+  1453→                      <SelectItem value="troubleshooting">
+  1454→                        Troubleshooting
+  1455→                      </SelectItem>
+  1456→                      <SelectItem value="procedure">Procedure</SelectItem>
+  1457→                      <SelectItem value="safety_bulletin">
+  1458→                        Safety Bulletin
+  1459→                      </SelectItem>
+  1460→                      <SelectItem value="case_study">Case Study</SelectItem>
+  1461→                    </SelectContent>
+  1462→                  </Select>
+  1463→                </div>
+  1464→              </CardContent>
+  1465→            </Card>
+  1466→
+  1467→            {/* Summary line */}
+  1468→            <div className="flex items-center justify-between">
+  1469→              <p className="text-xs text-slate-500">
+  1470→                {docLoading ? (
+  1471→                  'Loading…'
+  1472→                ) : (
+  1473→                  <>
+  1474→                    <span className="font-semibold text-slate-700">
+  1475→                      {docSummary?.total ?? 0}
+  1476→                    </span>{' '}
+  1477→                    documents ·{' '}
+  1478→                    <span className="font-semibold text-red-600">
+  1479→                      {docSummary?.critical ?? 0}
+  1480→                    </span>{' '}
+  1481→                    critical
+  1482→                  </>
+  1483→                )}
+  1484→              </p>
+  1485→            </div>
+  1486→
+  1487→            {/* Document list (scrollable) */}
+  1488→            {docLoading ? (
+  1489→              <div className="flex items-center justify-center py-16 text-slate-500 text-sm">
+  1490→                <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Loading
+  1491→                documents…
+  1492→              </div>
+  1493→            ) : docs.length === 0 ? (
+  1494→              <Card className="border-dashed border-slate-200">
+  1495→                <CardContent className="p-8 text-center text-sm text-slate-500">
+  1496→                  <BookOpen className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+  1497→                  No documents match your search.
+  1498→                </CardContent>
+  1499→              </Card>
+  1500→            ) : (
+  1501→              <div className="max-h-96 overflow-y-auto pr-1 space-y-2.5 custom-scrollbar">
+  1502→                {docs.map((doc) => (
+  1503→                  <DocumentRow
+  1504→                    key={doc.id}
+  1505→                    doc={doc}
+  1506→                    onOpen={() => openDoc(doc)}
+  1507→                  />
+  1508→                ))}
+  1509→              </div>
+  1510→            )}
+  1511→          </TabsContent>
+  1512→
+  1513→          {/* ─── Tab 3: Ask a Senior ─── */}
+  1514→          <TabsContent value="ask" className="space-y-4 mt-4">
+  1515→            <Card className="border-slate-200/70 shadow-sm">
+  1516→              <CardContent className="p-4 sm:p-5 space-y-3">
+  1517→                <div className="flex items-center gap-2 mb-1">
+  1518→                  <MessageCircleQuestion className="w-4 h-4 text-emerald-500" />
+  1519→                  <h3 className="text-sm font-bold text-slate-800">
+  1520→                    Ask a question to the captured knowledge base
+  1521→                  </h3>
+  1522→                </div>
+  1523→                <p className="text-xs text-slate-500">
+  1524→                  The AI answers as a senior mentor would, citing the captured
+  1525→                  knowledge documents (e.g.{' '}
+  1526→                  <span className="font-mono text-emerald-700">[KD-001]</span>).
+  1527→                  Grounded in Dean Dalpe, Enbridge #64: smart-manuals use case
+  1528→                  — data interpretation, not decision-making.
+  1529→                </p>
+  1530→
+  1531→                <Textarea
+  1532→                  placeholder="e.g. How do I qualify a thruster bearing for Lloyd's Register?"
+  1533→                  value={question}
+  1534→                  onChange={(e) => setQuestion(e.target.value)}
+  1535→                  className="min-h-[88px] text-sm resize-none"
+  1536→                  onKeyDown={(e) => {
+  1537→                    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+  1538→                      e.preventDefault()
+  1539→                      askQuestion()
+  1540→                    }
+  1541→                  }}
+  1542→                />
+  1543→
+  1544→                <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+  1545→                  <Select value={askScope} onValueChange={setAskScope}>
+  1546→                    <SelectTrigger className="h-9 w-full sm:w-[260px] text-sm">
+  1547→                      <SelectValue placeholder="All seniors" />
+  1548→                    </SelectTrigger>
+  1549→                    <SelectContent>
+  1550→                      <SelectItem value="all">All Seniors</SelectItem>
+  1551→                      {seniorPickerOptions.map((s) => (
+  1552→                        <SelectItem key={s.id} value={s.employeeId}>
+  1553→                          {s.name} ({s.title})
+  1554→                        </SelectItem>
+  1555→                      ))}
+  1556→                    </SelectContent>
+  1557→                  </Select>
+  1558→                  <Button
+  1559→                    onClick={() => askQuestion()}
+  1560→                    disabled={askLoading || !question.trim()}
+  1561→                    className="h-9 sm:ml-auto bg-emerald-600 hover:bg-emerald-700 text-white"
+  1562→                  >
+  1563→                    {askLoading ? (
+  1564→                      <>
+  1565→                        <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />{' '}
+  1566→                        Thinking…
+  1567→                      </>
+  1568→                    ) : (
+  1569→                      <>
+  1570→                        <Sparkles className="w-4 h-4 mr-1.5" /> Ask
+  1571→                      </>
+  1572→                    )}
+  1573→                  </Button>
+  1574→                </div>
+  1575→
+  1576→                {/* Suggested chips */}
+  1577→                <div className="flex flex-wrap gap-1.5 pt-1">
+  1578→                  <span className="text-[11px] text-slate-400 self-center mr-1">
+  1579→                    Try:
+  1580→                  </span>
+  1581→                  {suggestedQuestions.map((q, i) => (
+  1582→                    <button
+  1583→                      key={i}
+  1584→                      onClick={() => askQuestion(q)}
+  1585→                      disabled={askLoading}
+  1586→                      className="text-[11px] px-2 py-1 rounded-full border border-slate-200 bg-white text-slate-600 hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700 transition-colors disabled:opacity-50"
+  1587→                    >
+  1588→                      {q}
+  1589→                    </button>
+  1590→                  ))}
+  1591→                </div>
+  1592→              </CardContent>
+  1593→            </Card>
+  1594→
+  1595→            {/* Answer */}
+  1596→            {askLoading && (
+  1597→              <Card className="border-emerald-100 bg-emerald-50/30">
+  1598→                <CardContent className="p-5">
+  1599→                  <div className="flex items-center gap-2 text-sm text-slate-600">
+  1600→                    <Loader2 className="w-4 h-4 animate-spin text-emerald-500" />
+  1601→                    Consulting the captured knowledge of senior experts…
+  1602→                  </div>
+  1603→                  <div className="mt-3 space-y-2">
+  1604→                    <div className="h-3 bg-emerald-100/60 rounded animate-pulse" />
+  1605→                    <div className="h-3 bg-emerald-100/60 rounded animate-pulse w-5/6" />
+  1606→                    <div className="h-3 bg-emerald-100/60 rounded animate-pulse w-4/6" />
+  1607→                  </div>
+  1608→                </CardContent>
+  1609→              </Card>
+  1610→            )}
+  1611→
+  1612→            {askResult && !askLoading && (
+  1613→              <div className="space-y-4">
+  1614→                <Card className="border-emerald-200 shadow-sm">
+  1615→                  <CardHeader className="pb-2 pt-4 px-5">
+  1616→                    <div className="flex items-center justify-between gap-2">
+  1617→                      <CardTitle className="text-sm font-bold text-slate-800 flex items-center gap-2">
+  1618→                        <Sparkles className="w-4 h-4 text-emerald-500" />
+  1619→                        Senior&apos;s Answer
+  1620→                      </CardTitle>
+  1621→                      <Badge
+  1622→                        variant="outline"
+  1623→                        className="text-[10px] px-1.5 py-0 h-5 bg-emerald-50 text-emerald-700 border-emerald-200"
+  1624→                      >
+  1625→                        Scope:{' '}
+  1626→                        {askResult.seniorScope === 'all-seniors'
+  1627→                          ? 'All Seniors'
+  1628→                          : askResult.seniorScope}
+  1629→                      </Badge>
+  1630→                    </div>
+  1631→                  </CardHeader>
+  1632→                  <CardContent className="px-5 pb-4">
+  1633→                    <p className="text-[11px] text-slate-500 italic mb-2">
+  1634→                      Q: {askResult.question}
+  1635→                    </p>
+  1636→                    <Separator className="bg-slate-100 mb-3" />
+  1637→                    <div className="text-sm text-slate-700 leading-relaxed space-y-1">
+  1638→                      {renderAnswer(askResult.answer)}
+  1639→                    </div>
+  1640→                  </CardContent>
+  1641→                </Card>
+  1642→
+  1643→                {/* Sources */}
+  1644→                {askResult.citedDocs.length > 0 && (
+  1645→                  <Card className="border-slate-200/70 shadow-sm">
+  1646→                    <CardHeader className="pb-2 pt-4 px-5">
+  1647→                      <CardTitle className="text-sm font-bold text-slate-800 flex items-center gap-2">
+  1648→                        <BookOpen className="w-4 h-4 text-violet-500" />
+  1649→                        Sources ({askResult.citedDocs.length})
+  1650→                      </CardTitle>
+  1651→                    </CardHeader>
+  1652→                    <CardContent className="px-5 pb-4 space-y-2.5">
+  1653→                      {askResult.citedDocs.map((c, i) => {
+  1654→                        const cMeta =
+  1655→                          CATEGORY_META[c.category] ?? CATEGORY_META.procedure
+  1656→                        const crit =
+  1657→                          CRITICALITY_STYLE[c.criticality] ??
+  1658→                          CRITICALITY_STYLE.standard
+  1659→                        // Normalize relevance score to 0-100 (max observed ~ score per term)
+  1660→                        const pct = Math.min(100, Math.max(8, c.relevanceScore * 12))
+  1661→                        return (
+  1662→                          <div
+  1663→                            key={i}
+  1664→                            className="rounded-lg border border-slate-200 bg-white p-3"
+  1665→                          >
+  1666→                            <div className="flex items-start justify-between gap-2">
+  1667→                              <div className="min-w-0">
+  1668→                                <p className="text-sm font-semibold text-slate-800 leading-snug">
+  1669→                                  {c.title}
+  1670→                                </p>
+  1671→                                <p className="text-xs text-slate-500 mt-0.5">
+  1672→                                  {c.author} · {c.authorTitle}
+  1673→                                </p>
+  1674→                              </div>
+  1675→                              <Badge
+  1676→                                variant="outline"
+  1677→                                className={`text-[10px] px-1.5 py-0 h-5 shrink-0 ${crit.badge}`}
+  1678→                              >
+  1679→                                <span
+  1680→                                  className={`w-1.5 h-1.5 rounded-full mr-1 ${crit.dot}`}
+  1681→                                />
+  1682→                                {c.documentId}
+  1683→                              </Badge>
+  1684→                            </div>
+  1685→                            <div className="flex items-center gap-2 mt-2">
+  1686→                              <Badge
+  1687→                                variant="outline"
+  1688→                                className="text-[10px] px-1.5 py-0 h-5 bg-slate-50 text-slate-600 border-slate-200 font-normal"
+  1689→                              >
+  1690→                                <cMeta.icon className="w-2.5 h-2.5 mr-1" />
+  1691→                                {cMeta.label}
+  1692→                              </Badge>
+  1693→                              <div className="flex items-center gap-1.5 flex-1 min-w-[120px]">
+  1694→                                <span className="text-[10px] text-slate-500 whitespace-nowrap">
+  1695→                                  Relevance
+  1696→                                </span>
+  1697→                                <Progress
+  1698→                                  value={pct}
+  1699→                                  className="h-1.5 flex-1"
+  1700→                                  style={
+  1701→                                    {
+  1702→                                      // tint the progress bar via inline style override
+  1703→                                    } as React.CSSProperties
+  1704→                                  }
+  1705→                                />
+  1706→                                <span className="text-[10px] font-semibold text-slate-600 w-7 text-right">
+  1707→                                  {c.relevanceScore}
+  1708→                                </span>
+  1709→                              </div>
+  1710→                            </div>
+  1711→                          </div>
+  1712→                        )
+  1713→                      })}
+  1714→                    </CardContent>
+  1715→                  </Card>
+  1716→                )}
+  1717→              </div>
+  1718→            )}
+  1719→
+  1720→            {!askResult && !askLoading && (
+  1721→              <Card className="border-dashed border-slate-200">
+  1722→                <CardContent className="p-8 text-center text-sm text-slate-500">
+  1723→                  <MessageCircleQuestion className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+  1724→                  Ask a question above to get a grounded answer from the
+  1725→                  captured knowledge base.
+  1726→                </CardContent>
+  1727→              </Card>
+  1728→            )}
+  1729→          </TabsContent>
+  1730→
+  1731→          {/* ─── Tab 4: Onboarding Generator ─── */}
+  1732→          <TabsContent value="onboarding" className="space-y-4 mt-4">
+  1733→            <Card className="border-slate-200/70 shadow-sm">
+  1734→              <CardContent className="p-4 sm:p-5 space-y-3">
+  1735→                <div className="flex items-center gap-2 mb-1">
+  1736→                  <GraduationCap className="w-4 h-4 text-violet-500" />
+  1737→                  <h3 className="text-sm font-bold text-slate-800">
+  1738→                    Generate a 90-day onboarding plan for a departing senior
+  1739→                  </h3>
+  1740→                </div>
+  1741→                <p className="text-xs text-slate-500">
+  1742→                  The AI builds a replacement onboarding plan grounded in that
+  1743→                  senior&apos;s captured knowledge documents, specialties, and
+  1744→                  scheduled transfers. Grounded in Jim Granger, MAN Energy #23:
+  1745→                  &ldquo;The real power [of AI] is that lack of technical
+  1746→                  expertise&hellip; Those guys are gone.&rdquo;
+  1747→                </p>
+  1748→
+  1749→                <div className="flex flex-col sm:flex-row gap-2 sm:items-end">
+  1750→                  <div className="flex-1">
+  1751→                    <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1 block">
+  1752→                      Select departing senior
+  1753→                    </label>
+  1754→                    <Select
+  1755→                      value={onbSeniorId}
+  1756→                      onValueChange={setOnbSeniorId}
+  1757→                    >
+  1758→                      <SelectTrigger className="h-9 w-full text-sm">
+  1759→                        <SelectValue placeholder="Choose a retiring or senior employee…" />
+  1760→                      </SelectTrigger>
+  1761→                      <SelectContent>
+  1762→                        {seniorPickerOptions.length === 0 ? (
+  1763→                          <SelectItem value="_none" disabled>
+  1764→                            No seniors available
+  1765→                          </SelectItem>
+  1766→                        ) : (
+  1767→                          seniorPickerOptions.map((s) => (
+  1768→                            <SelectItem key={s.id} value={s.employeeId}>
+  1769→                              {s.name} — {s.title} ({s.yearsExperience} yrs)
+  1770→                            </SelectItem>
+  1771→                          ))
+  1772→                        )}
+  1773→                      </SelectContent>
+  1774→                    </Select>
+  1775→                  </div>
+  1776→                  <Button
+  1777→                    onClick={generateOnboarding}
+  1778→                    disabled={onbLoading || !onbSeniorId}
+  1779→                    className="h-9 bg-violet-600 hover:bg-violet-700 text-white sm:w-auto"
+  1780→                  >
+  1781→                    {onbLoading ? (
+  1782→                      <>
+  1783→                        <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />{' '}
+  1784→                        Generating…
+  1785→                      </>
+  1786→                    ) : (
+  1787→                      <>
+  1788→                        <Sparkles className="w-4 h-4 mr-1.5" /> Generate 90-Day
+  1789→                        Plan
+  1790→                      </>
+  1791→                    )}
+  1792→                  </Button>
+  1793→                </div>
+  1794→              </CardContent>
+  1795→            </Card>
+  1796→
+  1797→            {/* Loading skeleton */}
+  1798→            {onbLoading && (
+  1799→              <Card className="border-violet-100 bg-violet-50/30">
+  1800→                <CardContent className="p-5 space-y-3">
+  1801→                  <div className="flex items-center gap-2 text-sm text-slate-600">
+  1802→                    <Loader2 className="w-4 h-4 animate-spin text-violet-500" />
+  1803→                    Building onboarding plan from captured knowledge…
+  1804→                  </div>
+  1805→                  <div className="space-y-2">
+  1806→                    <div className="h-3 bg-violet-100/60 rounded animate-pulse" />
+  1807→                    <div className="h-3 bg-violet-100/60 rounded animate-pulse w-5/6" />
+  1808→                    <div className="grid grid-cols-3 gap-3 mt-3">
+  1809→                      {[1, 2, 3].map((i) => (
+  1810→                        <div
+  1811→                          key={i}
+  1812→                          className="h-24 bg-violet-100/40 rounded-lg animate-pulse"
+  1813→                        />
+  1814→                      ))}
+  1815→                    </div>
+  1816→                  </div>
+  1817→                </CardContent>
+  1818→              </Card>
+  1819→            )}
+  1820→
+  1821→            {/* Result */}
+  1822→            {onbResult && !onbLoading && (
+  1823→              <OnboardingPlanView result={onbResult} />
+  1824→            )}
+  1825→
+  1826→            {!onbResult && !onbLoading && (
+  1827→              <Card className="border-dashed border-slate-200">
+  1828→                <CardContent className="p-8 text-center text-sm text-slate-500">
+  1829→                  <GraduationCap className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+  1830→                  Select a departing senior above to generate a 90-day
+  1831→                  onboarding plan for their replacement.
+  1832→                </CardContent>
+  1833→              </Card>
+  1834→            )}
+  1835→          </TabsContent>
+  1836→        </Tabs>
+  1837→
+  1838→        {/* Dialogs */}
+  1839→        <EmployeeProfileDialog
+  1840→          emp={profileEmp}
+  1841→          open={profileOpen}
+  1842→          onOpenChange={setProfileOpen}
+  1843→        />
+  1844→        <DocumentDialog
+  1845→          doc={activeDoc}
+  1846→          open={docDialogOpen}
+  1847→          onOpenChange={setDocDialogOpen}
+  1848→        />
+  1849→      </div>
+  1850→    </TooltipProvider>
+  1851→  )
+  1852→}
+  1853→
+  1854→// ─── Onboarding Plan View ────────────────────────────────────────────────────
+  1855→
+  1856→function OnboardingPlanView({ result }: { result: OnboardingResponse }) {
+  1857→  const { senior, plan, docCount, transferCount, generatedAt } = result
+  1858→  const hasRisks = plan.risksOfKnowledgeLoss.length > 0
+  1859→
+  1860→  const phases = [
+  1861→    {
+  1862→      title: 'Days 1–30',
+  1863→      subtitle: 'Foundation & Orientation',
+  1864→      items: plan.days1to30,
+  1865→      tint: '#10B981',
+  1866→      bg: 'bg-emerald-50',
+  1867→      border: 'border-emerald-200',
+  1868→    },
+  1869→    {
+  1870→      title: 'Days 31–60',
+  1871→      subtitle: 'Shadowing & Practice',
+  1872→      items: plan.days31to60,
+  1873→      tint: '#F59E0B',
+  1874→      bg: 'bg-amber-50',
+  1875→      border: 'border-amber-200',
+  1876→    },
+  1877→    {
+  1878→      title: 'Days 61–90',
+  1879→      subtitle: 'Supervised Execution',
+  1880→      items: plan.days61to90,
+  1881→      tint: '#8B5CF6',
+  1882→      bg: 'bg-violet-50',
+  1883→      border: 'border-violet-200',
+  1884→    },
+  1885→  ]
+  1886→
+  1887→  return (
+  1888→    <div className="space-y-4">
+  1889→      {/* Header */}
+  1890→      <Card className="border-violet-200 shadow-sm overflow-hidden">
+  1891→        <CardContent className="p-5">
+  1892→          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+  1893→            <div>
+  1894→              <div className="flex items-center gap-2 mb-1">
+  1895→                <Badge
+  1896→                  variant="outline"
+  1897→                  className="text-[10px] px-1.5 py-0 h-5 bg-violet-50 text-violet-700 border-violet-200"
+  1898→                >
+  1899→                  <GraduationCap className="w-2.5 h-2.5 mr-1" />
+  1900→                  Onboarding Plan
+  1901→                </Badge>
+  1902→                <span className="text-[11px] text-slate-400">
+  1903→                  Generated {formatDate(generatedAt)}
+  1904→                </span>
+  1905→              </div>
+  1906→              <h3 className="text-lg font-bold text-slate-800">
+  1907→                Onboarding Plan for {plan.newHireTitle}
+  1908→              </h3>
+  1909→              <p className="text-sm text-slate-500 mt-0.5">
+  1910→                Replacing:{' '}
+  1911→                <span className="font-semibold text-slate-700">
+  1912→                  {senior.name}
+  1913→                </span>{' '}
+  1914→                ({senior.yearsExperience} yrs experience) · {senior.title} ·{' '}
+  1915→                {senior.department}
+  1916→              </p>
+  1917→            </div>
+  1918→            <div className="flex gap-2 shrink-0">
+  1919→              <div className="text-center rounded-lg border border-slate-200 px-3 py-2 bg-white">
+  1920→                <p className="text-xl font-bold text-emerald-600">{docCount}</p>
+  1921→                <p className="text-[10px] text-slate-500 uppercase tracking-wide">
+  1922→                  Docs
+  1923→                </p>
+  1924→              </div>
+  1925→              <div className="text-center rounded-lg border border-slate-200 px-3 py-2 bg-white">
+  1926→                <p className="text-xl font-bold text-violet-600">
+  1927→                  {transferCount}
+  1928→                </p>
+  1929→                <p className="text-[10px] text-slate-500 uppercase tracking-wide">
+  1930→                  Transfers
+  1931→                </p>
+  1932→              </div>
+  1933→            </div>
+  1934→          </div>
+  1935→        </CardContent>
+  1936→      </Card>
+  1937→
+  1938→      {/* Overview */}
+  1939→      <Card className="border-slate-200/70 shadow-sm">
+  1940→        <CardHeader className="pb-2 pt-4 px-5">
+  1941→          <CardTitle className="text-sm font-bold text-slate-800">
+  1942→            Overview
+  1943→          </CardTitle>
+  1944→        </CardHeader>
+  1945→        <CardContent className="px-5 pb-4">
+  1946→          <p className="text-sm text-slate-700 leading-relaxed">
+  1947→            {plan.overview}
+  1948→          </p>
+  1949→        </CardContent>
+  1950→      </Card>
+  1951→
+  1952→      {/* Phase cards */}
+  1953→      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+  1954→        {phases.map((phase, i) => (
+  1955→          <Card
+  1956→            key={i}
+  1957→            className={`border ${phase.border} ${phase.bg} shadow-sm`}
+  1958→          >
+  1959→            <CardHeader className="pb-2 pt-4 px-4">
+  1960→              <div className="flex items-center gap-2">
+  1961→                <div
+  1962→                  className="w-7 h-7 rounded-md flex items-center justify-center text-white text-xs font-bold shrink-0"
+  1963→                  style={{ backgroundColor: phase.tint }}
+  1964→                >
+  1965→                  {i + 1}
+  1966→                </div>
+  1967→                <div>
+  1968→                  <CardTitle className="text-sm font-bold text-slate-800">
+  1969→                    {phase.title}
+  1970→                  </CardTitle>
+  1971→                  <p className="text-[11px] text-slate-500">
+  1972→                    {phase.subtitle}
+  1973→                  </p>
+  1974→                </div>
+  1975→              </div>
+  1976→            </CardHeader>
+  1977→            <CardContent className="px-4 pb-4">
+  1978→              {phase.items.length === 0 ? (
+  1979→                <p className="text-xs text-slate-400 italic">
+  1980→                  No specific tasks defined.
+  1981→                </p>
+  1982→              ) : (
+  1983→                <ul className="space-y-1.5">
+  1984→                  {phase.items.map((item, j) => (
+  1985→                    <li
+  1986→                      key={j}
+  1987→                      className="flex items-start gap-2 text-xs text-slate-700 leading-relaxed"
+  1988→                    >
+  1989→                      <CheckCircle2
+  1990→                        className="w-3.5 h-3.5 mt-0.5 shrink-0"
+  1991→                        style={{ color: phase.tint }}
+  1992→                      />
+  1993→                      <span>{item}</span>
+  1994→                    </li>
+  1995→                  ))}
+  1996→                </ul>
+  1997→              )}
+  1998→            </CardContent>
+  1999→          </Card>
+  2000→        ))}
+
+[showing lines 1-2000 of 2161; use offset=2001 with limit to continue reading]

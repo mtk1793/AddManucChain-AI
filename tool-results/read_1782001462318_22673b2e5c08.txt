@@ -1,0 +1,1414 @@
+     1→'use client'
+     2→
+     3→import { useState, useRef, useEffect, useCallback } from 'react'
+     4→import { motion, AnimatePresence } from 'framer-motion'
+     5→import {
+     6→  Bot,
+     7→  User,
+     8→  Send,
+     9→  Sparkles,
+    10→  ShieldCheck,
+    11→  AlertTriangle,
+    12→  CheckCircle2,
+    13→  XCircle,
+    14→  Loader2,
+    15→  RefreshCw,
+    16→  Clock,
+    17→  FileText,
+    18→  Boxes,
+    19→  BookOpen,
+    20→  GraduationCap,
+    21→  ShoppingCart,
+    22→  Wrench,
+    23→  Printer,
+    24→  ChevronRight,
+    25→  Activity,
+    26→  CircleDot,
+    27→  History,
+    28→  Quote,
+    29→  ScanLine,
+    30→} from 'lucide-react'
+    31→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+    32→import { Badge } from '@/components/ui/badge'
+    33→import { Button } from '@/components/ui/button'
+    34→import { Textarea } from '@/components/ui/textarea'
+    35→import { Separator } from '@/components/ui/separator'
+    36→import { Progress } from '@/components/ui/progress'
+    37→import { toast } from 'sonner'
+    38→
+    39→// ─── Types (mirror the /api/ai/agent contract) ───────────────────────────────
+    40→
+    41→interface AgentPlan {
+    42→  intent: string
+    43→  tool: string
+    44→  parameters: Record<string, any>
+    45→  confidence: number // 0–1
+    46→  requiresApproval: boolean
+    47→  reasoning: string
+    48→  userFacingSummary: string
+    49→}
+    50→
+    51→type AgentStatus = 'executed' | 'answered' | 'awaiting_approval' | 'failed' | 'thinking'
+    52→
+    53→interface AgentResponse {
+    54→  sessionId: string
+    55→  request: string
+    56→  plan: AgentPlan
+    57→  autoExecuted: boolean
+    58→  status: AgentStatus
+    59→  result?: any
+    60→  actionId?: string
+    61→  error?: string
+    62→}
+    63→
+    64→interface ChatMessage {
+    65→  id: string
+    66→  role: 'user' | 'agent'
+    67→  // For user messages
+    68→  text?: string
+    69→  // For agent messages
+    70→  response?: AgentResponse
+    71→  thinking?: boolean
+    72→}
+    73→
+    74→interface AuditLog {
+    75→  actionId: string
+    76→  sessionId: string
+    77→  request: string
+    78→  intent: string
+    79→  tool: string
+    80→  confidence: number
+    81→  autoExecuted: boolean
+    82→  requiresApproval: boolean
+    83→  status: string
+    84→  reasoning: string | null
+    85→  parameters: string | null
+    86→  result: string | null
+    87→  errorMessage: string | null
+    88→  createdAt: string
+    89→  executedAt: string | null
+    90→}
+    91→
+    92→// ─── Color families by tool family ────────────────────────────────────────────
+    93→//   read-only  = emerald
+    94→//   write      = amber
+    95→//   knowledge  = violet
+    96→
+    97→const READ_TOOLS = new Set([
+    98→  'list_low_stock',
+    99→  'find_am_candidates',
+   100→  'answer_question',
+   101→])
+   102→const WRITE_TOOLS = new Set(['create_order', 'adjust_inventory', 'trigger_print'])
+   103→const KNOWLEDGE_TOOLS = new Set(['find_knowledge', 'generate_onboarding'])
+   104→
+   105→type ToolFamily = 'read' | 'write' | 'knowledge' | 'unknown'
+   106→
+   107→function toolFamily(tool: string): ToolFamily {
+   108→  if (READ_TOOLS.has(tool)) return 'read'
+   109→  if (WRITE_TOOLS.has(tool)) return 'write'
+   110→  if (KNOWLEDGE_TOOLS.has(tool)) return 'knowledge'
+   111→  return 'unknown'
+   112→}
+   113→
+   114→const FAMILY_STYLES: Record<
+   115→  ToolFamily,
+   116→  { label: string; badge: string; dot: string }
+   117→> = {
+   118→  read: {
+   119→    label: 'Read-only',
+   120→    badge: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+   121→    dot: 'bg-emerald-500',
+   122→  },
+   123→  write: {
+   124→    label: 'Write action',
+   125→    badge: 'border-amber-200 bg-amber-50 text-amber-700',
+   126→    dot: 'bg-amber-500',
+   127→  },
+   128→  knowledge: {
+   129→    label: 'Knowledge',
+   130→    badge: 'border-violet-200 bg-violet-50 text-violet-700',
+   131→    dot: 'bg-violet-500',
+   132→  },
+   133→  unknown: {
+   134→    label: 'Other',
+   135→    badge: 'border-slate-200 bg-slate-50 text-slate-700',
+   136→    dot: 'bg-slate-500',
+   137→  },
+   138→}
+   139→
+   140→const TOOL_META: Record<
+   141→  string,
+   142→  { label: string; Icon: React.ComponentType<{ className?: string }> }
+   143→> = {
+   144→  answer_question: { label: 'Answer Question', Icon: Sparkles },
+   145→  list_low_stock: { label: 'List Low Stock', Icon: AlertTriangle },
+   146→  find_am_candidates: { label: 'Find AM Candidates', Icon: ScanLine },
+   147→  find_knowledge: { label: 'Search Knowledge', Icon: BookOpen },
+   148→  generate_onboarding: { label: 'Generate Onboarding', Icon: GraduationCap },
+   149→  create_order: { label: 'Create Order', Icon: ShoppingCart },
+   150→  adjust_inventory: { label: 'Adjust Inventory', Icon: Wrench },
+   151→  trigger_print: { label: 'Trigger Print', Icon: Printer },
+   152→}
+   153→
+   154→// ─── Suggested prompt chips ───────────────────────────────────────────────────
+   155→
+   156→interface Suggestion {
+   157→  text: string
+   158→  family: ToolFamily
+   159→  hint: string
+   160→}
+   161→
+   162→const SUGGESTIONS: Suggestion[] = [
+   163→  {
+   164→    text: 'Which parts are out of stock?',
+   165→    family: 'read',
+   166→    hint: 'Safe · reads inventory',
+   167→  },
+   168→  {
+   169→    text: 'Find all AM candidates in my inventory',
+   170→    family: 'read',
+   171→    hint: 'Safe · read-only scan',
+   172→  },
+   173→  {
+   174→    text: 'Order 5 more thruster bearing housings',
+   175→    family: 'write',
+   176→    hint: 'Write · needs approval',
+   177→  },
+   178→  {
+   179→    text: "Generate an onboarding plan based on Robert's knowledge",
+   180→    family: 'knowledge',
+   181→    hint: 'Safe · LLM generation',
+   182→  },
+   183→  {
+   184→    text: 'Search knowledge base for heat exchanger crack diagnosis',
+   185→    family: 'knowledge',
+   186→    hint: 'Safe · knowledge search',
+   187→  },
+   188→  {
+   189→    text: 'Trigger a print for the impeller shaft',
+   190→    family: 'write',
+   191→    hint: 'Write · needs approval',
+   192→  },
+   193→]
+   194→
+   195→// ─── Helpers ──────────────────────────────────────────────────────────────────
+   196→
+   197→function genId(prefix: string) {
+   198→  return `${prefix}-${Date.now().toString(36)}${Math.random()
+   199→    .toString(36)
+   200→    .slice(2, 6)}`
+   201→}
+   202→
+   203→function timeAgo(iso: string): string {
+   204→  try {
+   205→    const diff = Date.now() - new Date(iso).getTime()
+   206→    const s = Math.floor(diff / 1000)
+   207→    if (s < 60) return `${s}s ago`
+   208→    const m = Math.floor(s / 60)
+   209→    if (m < 60) return `${m}m ago`
+   210→    const h = Math.floor(m / 60)
+   211→    if (h < 24) return `${h}h ago`
+   212→    const d = Math.floor(h / 24)
+   213→    return `${d}d ago`
+   214→  } catch {
+   215→    return '—'
+   216→  }
+   217→}
+   218→
+   219→function fmtTime(iso: string | null): string {
+   220→  if (!iso) return '—'
+   221→  try {
+   222→    return new Date(iso).toLocaleTimeString([], {
+   223→      hour: '2-digit',
+   224→      minute: '2-digit',
+   225→    })
+   226→  } catch {
+   227→    return '—'
+   228→  }
+   229→}
+   230→
+   231→function safeParse<T>(raw: string | null | undefined, fallback: T): T {
+   232→  if (!raw) return fallback
+   233→  try {
+   234→    return JSON.parse(raw) as T
+   235→  } catch {
+   236→    return fallback
+   237→  }
+   238→}
+   239→
+   240→// ─── Status badge ─────────────────────────────────────────────────────────────
+   241→
+   242→function StatusBadge({
+   243→  status,
+   244→  autoExecuted,
+   245→}: {
+   246→  status: AgentStatus
+   247→  autoExecuted: boolean
+   248→}) {
+   249→  if (status === 'thinking') {
+   250→    return (
+   251→      <Badge className="border-slate-200 bg-slate-50 text-slate-600">
+   252→        <Loader2 className="h-3 w-3 animate-spin" />
+   253→        Thinking
+   254→      </Badge>
+   255→    )
+   256→  }
+   257→  if (status === 'executed' || status === 'answered') {
+   258→    return (
+   259→      <Badge className="border-emerald-200 bg-emerald-50 text-emerald-700">
+   260→        <CheckCircle2 className="h-3 w-3" />
+   261→        {autoExecuted ? 'Auto-executed' : 'Executed'}
+   262→      </Badge>
+   263→    )
+   264→  }
+   265→  if (status === 'awaiting_approval') {
+   266→    return (
+   267→      <Badge className="border-amber-200 bg-amber-50 text-amber-700">
+   268→        <ShieldCheck className="h-3 w-3" />
+   269→        Needs approval
+   270→      </Badge>
+   271→    )
+   272→  }
+   273→  if (status === 'failed') {
+   274→    return (
+   275→      <Badge className="border-red-200 bg-red-50 text-red-700">
+   276→        <XCircle className="h-3 w-3" />
+   277→        Failed
+   278→      </Badge>
+   279→    )
+   280→  }
+   281→  return null
+   282→}
+   283→
+   284→// ─── Confidence badge ─────────────────────────────────────────────────────────
+   285→
+   286→function ConfidenceBadge({ confidence }: { confidence: number }) {
+   287→  const pct = Math.round((confidence ?? 0) * 100)
+   288→  const color =
+   289→    pct >= 80
+   290→      ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+   291→      : pct >= 50
+   292→        ? 'border-amber-200 bg-amber-50 text-amber-700'
+   293→        : 'border-red-200 bg-red-50 text-red-700'
+   294→  return (
+   295→    <Badge variant="outline" className={color}>
+   296→      <CircleDot className="h-3 w-3" />
+   297→      {pct}% confidence
+   298→    </Badge>
+   299→  )
+   300→}
+   301→
+   302→// ─── Intent badge ─────────────────────────────────────────────────────────────
+   303→
+   304→function IntentBadge({ tool }: { tool: string }) {
+   305→  const family = toolFamily(tool)
+   306→  const meta = TOOL_META[tool]
+   307→  const Icon = meta?.Icon ?? Activity
+   308→  return (
+   309→    <Badge variant="outline" className={FAMILY_STYLES[family].badge}>
+   310→      <Icon className="h-3 w-3" />
+   311→      {meta?.label ?? tool}
+   312→    </Badge>
+   313→  )
+   314→}
+   315→
+   316→// ─── Section heading used inside result renderers ─────────────────────────────
+   317→
+   318→function ResultSection({
+   319→  title,
+   320→  icon: Icon,
+   321→  children,
+   322→  accent = 'text-slate-700',
+   323→}: {
+   324→  title: string
+   325→  icon: React.ComponentType<{ className?: string }>
+   326→  children: React.ReactNode
+   327→  accent?: string
+   328→}) {
+   329→  return (
+   330→    <div className="space-y-1.5">
+   331→      <div className={`flex items-center gap-1.5 text-xs font-semibold ${accent}`}>
+   332→        <Icon className="h-3.5 w-3.5" />
+   333→        {title}
+   334→      </div>
+   335→      {children}
+   336→    </div>
+   337→  )
+   338→}
+   339→
+   340→// ─── Per-tool result renderers ────────────────────────────────────────────────
+   341→
+   342→function AnswerQuestionResult({ result }: { result: any }) {
+   343→  const answer: string = result?.answer ?? ''
+   344→  return (
+   345→    <div className="rounded-md border border-slate-200 bg-white p-3 text-sm leading-relaxed text-slate-700 whitespace-pre-wrap">
+   346→      {answer || 'No answer returned.'}
+   347→    </div>
+   348→  )
+   349→}
+   350→
+   351→function LowStockRow({ p, kind }: { p: any; kind: 'out' | 'low' }) {
+   352→  return (
+   353→    <div className="flex items-center justify-between gap-2 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs">
+   354→      <div className="min-w-0 flex-1">
+   355→        <div className="font-medium text-slate-800 truncate">
+   356→          {p.name}
+   357→          <span className="ml-1.5 text-slate-400">· {p.partNumber}</span>
+   358→        </div>
+   359→        <div className="text-slate-500 truncate">{p.site}</div>
+   360→      </div>
+   361→      <div className="flex items-center gap-1.5 shrink-0">
+   362→        <span className="font-mono text-slate-700">
+   363→          {p.quantity}/{p.minStock}
+   364→        </span>
+   365→        {p.hasBlueprint && (
+   366→          <Badge className="border-violet-200 bg-violet-50 text-violet-700">
+   367→            <FileText className="h-3 w-3" />
+   368→            Blueprint
+   369→          </Badge>
+   370→        )}
+   371→        {kind === 'out' ? (
+   372→          <Badge className="border-red-200 bg-red-50 text-red-700">Out</Badge>
+   373→        ) : (
+   374→          <Badge className="border-amber-200 bg-amber-50 text-amber-700">Low</Badge>
+   375→        )}
+   376→      </div>
+   377→    </div>
+   378→  )
+   379→}
+   380→
+   381→function ListLowStockResult({ result }: { result: any }) {
+   382→  const out: any[] = result?.outOfStock ?? []
+   383→  const low: any[] = result?.belowMin ?? []
+   384→  const summary: string = result?.summary ?? ''
+   385→  return (
+   386→    <div className="space-y-3">
+   387→      <p className="text-xs text-slate-500">{summary}</p>
+   388→      <div className="grid gap-3 md:grid-cols-2">
+   389→        <ResultSection title={`Out of Stock (${out.length})`} icon={XCircle} accent="text-red-700">
+   390→          <div className="max-h-72 overflow-y-auto space-y-1.5 pr-1 thin-scroll">
+   391→            {out.length === 0 ? (
+   392→              <p className="text-xs text-slate-400 italic px-1">None — all parts in stock.</p>
+   393→            ) : (
+   394→              out.map((p, i) => <LowStockRow key={i} p={p} kind="out" />)
+   395→            )}
+   396→          </div>
+   397→        </ResultSection>
+   398→        <ResultSection title={`Below Min (${low.length})`} icon={AlertTriangle} accent="text-amber-700">
+   399→          <div className="max-h-72 overflow-y-auto space-y-1.5 pr-1 thin-scroll">
+   400→            {low.length === 0 ? (
+   401→              <p className="text-xs text-slate-400 italic px-1">None — all parts above minimum.</p>
+   402→            ) : (
+   403→              low.map((p, i) => <LowStockRow key={i} p={p} kind="low" />)
+   404→            )}
+   405→          </div>
+   406→        </ResultSection>
+   407→      </div>
+   408→    </div>
+   409→  )
+   410→}
+   411→
+   412→function AmCandidatesResult({ result }: { result: any }) {
+   413→  const candidates: any[] = result?.candidates ?? []
+   414→  const summary: string = result?.summary ?? ''
+   415→  return (
+   416→    <div className="space-y-2">
+   417→      <p className="text-xs text-slate-500">{summary}</p>
+   418→      <div className="max-h-96 overflow-y-auto space-y-2 pr-1 thin-scroll">
+   419→        {candidates.length === 0 ? (
+   420→          <p className="text-xs text-slate-400 italic px-1">
+   421→            No low-stock parts with certified blueprints right now.
+   422→          </p>
+   423→        ) : (
+   424→          candidates.map((c, i) => (
+   425→            <div
+   426→              key={i}
+   427→              className="rounded-md border border-emerald-200 bg-emerald-50/40 p-2.5 text-xs"
+   428→            >
+   429→              <div className="flex items-center justify-between gap-2">
+   430→                <div className="font-medium text-slate-800 truncate">
+   431→                  {c.name}
+   432→                  <span className="ml-1.5 text-slate-400">· {c.partNumber}</span>
+   433→                </div>
+   434→                <Badge className="border-emerald-200 bg-emerald-50 text-emerald-700">
+   435→                  <ScanLine className="h-3 w-3" />
+   436→                  AM candidate
+   437→                </Badge>
+   438→              </div>
+   439→              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-slate-600">
+   440→                <span className="inline-flex items-center gap-1">
+   441→                  <CircleDot className="h-3 w-3 text-slate-400" />
+   442→                  {c.site}
+   443→                </span>
+   444→                <span className="font-mono">
+   445→                  qty {c.quantity}/{c.minStock}
+   446→                </span>
+   447→                {c.material && (
+   448→                  <span className="inline-flex items-center gap-1">
+   449→                    <Boxes className="h-3 w-3 text-slate-400" />
+   450→                    {c.material}
+   451→                  </span>
+   452→                )}
+   453→                {c.blueprint && (
+   454→                  <Badge className="border-violet-200 bg-violet-50 text-violet-700">
+   455→                    <FileText className="h-3 w-3" />
+   456→                    {c.blueprint}
+   457→                  </Badge>
+   458→                )}
+   459→              </div>
+   460→            </div>
+   461→          ))
+   462→        )}
+   463→      </div>
+   464→    </div>
+   465→  )
+   466→}
+   467→
+   468→function KnowledgeResult({ result }: { result: any }) {
+   469→  const matches: any[] = result?.matches ?? []
+   470→  const summary: string = result?.summary ?? ''
+   471→  return (
+   472→    <div className="space-y-2">
+   473→      <p className="text-xs text-slate-500">{summary}</p>
+   474→      <div className="max-h-96 overflow-y-auto space-y-2 pr-1 thin-scroll">
+   475→        {matches.length === 0 ? (
+   476→          <p className="text-xs text-slate-400 italic px-1">No matches found.</p>
+   477→        ) : (
+   478→          matches.map((m, i) => {
+   479→            const rel = Math.min(100, Math.round((m.relevanceScore ?? 0) * 25))
+   480→            return (
+   481→              <div
+   482→                key={i}
+   483→                className="rounded-md border border-violet-200 bg-violet-50/40 p-2.5 text-xs"
+   484→              >
+   485→                <div className="flex items-center justify-between gap-2">
+   486→                  <div className="font-semibold text-slate-800 truncate">{m.title}</div>
+   487→                  <Badge className="border-violet-200 bg-violet-50 text-violet-700">
+   488→                    {m.category ?? 'Knowledge'}
+   489→                  </Badge>
+   490→                </div>
+   491→                <div className="mt-0.5 text-slate-500">
+   492→                  {m.author ? `by ${m.author}` : ''}
+   493→                  {m.authorTitle ? ` · ${m.authorTitle}` : ''}
+   494→                </div>
+   495→                <p className="mt-1 text-slate-600 line-clamp-2">{m.summary}</p>
+   496→                <div className="mt-1.5 flex items-center gap-2">
+   497→                  <Progress value={rel} className="h-1.5 flex-1" />
+   498→                  <span className="text-[10px] text-slate-500 font-mono">
+   499→                    {rel}% match
+   500→                  </span>
+   501→                </div>
+   502→              </div>
+   503→            )
+   504→          })
+   505→        )}
+   506→      </div>
+   507→    </div>
+   508→  )
+   509→}
+   510→
+   511→function OnboardingResult({ result }: { result: any }) {
+   512→  const senior = result?.senior
+   513→  const plan = result?.plan
+   514→  if (!plan) {
+   515→    return (
+   516→      <p className="text-xs text-red-600">
+   517→        {result?.error ?? 'Failed to generate onboarding plan.'}
+   518→      </p>
+   519→    )
+   520→  }
+   521→  const hasRisks = Array.isArray(plan.risksOfKnowledgeLoss) && plan.risksOfKnowledgeLoss.length > 0
+   522→  return (
+   523→    <div className="space-y-3">
+   524→      {senior && (
+   525→        <div className="rounded-md border border-violet-200 bg-violet-50/40 p-2.5 text-xs">
+   526→          <div className="font-semibold text-slate-800">
+   527→            {senior.name}
+   528→            <span className="ml-1.5 font-normal text-slate-500">· {senior.title}</span>
+   529→          </div>
+   530→          <div className="text-slate-500">
+   531→            {senior.yearsExperience} yrs experience
+   532→            {senior.retirementDate ? ` · retiring ${senior.retirementDate}` : ''}
+   533→          </div>
+   534→        </div>
+   535→      )}
+   536→      {plan.overview && (
+   537→        <p className="text-xs text-slate-600 italic">{plan.overview}</p>
+   538→      )}
+   539→
+   540→      <div className="grid gap-2 md:grid-cols-3">
+   541→        {[
+   542→          { title: 'Days 1–30', items: plan.days1to30, accent: 'emerald' },
+   543→          { title: 'Days 31–60', items: plan.days31to60, accent: 'sky' },
+   544→          { title: 'Days 61–90', items: plan.days61to90, accent: 'violet' },
+   545→        ].map((col) => (
+   546→          <div
+   547→            key={col.title}
+   548→            className="rounded-md border border-slate-200 bg-white p-2.5 text-xs"
+   549→          >
+   550→            <div className="mb-1.5 font-semibold text-slate-700">{col.title}</div>
+   551→            <ul className="space-y-1">
+   552→              {(col.items ?? []).length === 0 ? (
+   553→                <li className="text-slate-400 italic">—</li>
+   554→              ) : (
+   555→                (col.items as string[]).map((it, i) => (
+   556→                  <li key={i} className="flex items-start gap-1.5">
+   557→                    <ChevronRight className="mt-0.5 h-3 w-3 shrink-0 text-slate-400" />
+   558→                    <span className="text-slate-600">{it}</span>
+   559→                  </li>
+   560→                ))
+   561→              )}
+   562→            </ul>
+   563→          </div>
+   564→        ))}
+   565→      </div>
+   566→
+   567→      <div className="grid gap-2 md:grid-cols-2">
+   568→        <ResultSection title="Must-Read Documents" icon={BookOpen} accent="text-violet-700">
+   569→          <div className="max-h-40 overflow-y-auto space-y-1 pr-1 thin-scroll">
+   570→            {(plan.mustReadDocs ?? []).length === 0 ? (
+   571→              <p className="text-xs text-slate-400 italic px-1">No specific docs flagged.</p>
+   572→            ) : (
+   573→              (plan.mustReadDocs as string[]).map((d, i) => (
+   574→                <div
+   575→                  key={i}
+   576→                  className="rounded border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-700"
+   577→                >
+   578→                  {d}
+   579→                </div>
+   580→              ))
+   581→            )}
+   582→          </div>
+   583→        </ResultSection>
+   584→        <ResultSection title="Must-Shadow Builds" icon={Boxes} accent="text-amber-700">
+   585→          <div className="max-h-40 overflow-y-auto space-y-1 pr-1 thin-scroll">
+   586→            {(plan.mustShadowBuilds ?? []).length === 0 ? (
+   587→              <p className="text-xs text-slate-400 italic px-1">No shadow builds flagged.</p>
+   588→            ) : (
+   589→              (plan.mustShadowBuilds as string[]).map((d, i) => (
+   590→                <div
+   591→                  key={i}
+   592→                  className="rounded border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-700"
+   593→                >
+   594→                  {d}
+   595→                </div>
+   596→              ))
+   597→            )}
+   598→          </div>
+   599→        </ResultSection>
+   600→      </div>
+   601→
+   602→      {Array.isArray(plan.milestones) && plan.milestones.length > 0 && (
+   603→        <ResultSection title="Milestones" icon={Activity} accent="text-sky-700">
+   604→          <div className="space-y-1">
+   605→            {(plan.milestones as { week?: string; milestone?: string }[]).map((m, i) => (
+   606→              <div
+   607→                key={i}
+   608→                className="flex items-start gap-2 rounded border border-slate-200 bg-white px-2 py-1 text-[11px]"
+   609→              >
+   610→                <Badge className="border-sky-200 bg-sky-50 text-sky-700 shrink-0">
+   611→                  {m.week ?? `W${i + 1}`}
+   612→                </Badge>
+   613→                <span className="text-slate-700">{m.milestone ?? '—'}</span>
+   614→              </div>
+   615→            ))}
+   616→          </div>
+   617→        </ResultSection>
+   618→      )}
+   619→
+   620→      <div
+   621→        className={`rounded-md border p-2.5 text-xs ${
+   622→          hasRisks
+   623→            ? 'border-red-200 bg-red-50'
+   624→            : 'border-emerald-200 bg-emerald-50/50'
+   625→        }`}
+   626→      >
+   627→        <div
+   628→          className={`flex items-center gap-1.5 font-semibold ${
+   629→            hasRisks ? 'text-red-700' : 'text-emerald-700'
+   630→          }`}
+   631→        >
+   632→          <AlertTriangle className="h-3.5 w-3.5" />
+   633→          Risks of Knowledge Loss
+   634→        </div>
+   635→        <ul className="mt-1.5 space-y-1">
+   636→          {(plan.risksOfKnowledgeLoss ?? []).length === 0 ? (
+   637→            <li className="text-emerald-700">
+   638→              No specific risks flagged — knowledge appears well captured.
+   639→            </li>
+   640→          ) : (
+   641→            (plan.risksOfKnowledgeLoss as string[]).map((r, i) => (
+   642→              <li key={i} className="flex items-start gap-1.5 text-red-700">
+   643→                <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-red-500 shrink-0" />
+   644→                <span>{r}</span>
+   645→              </li>
+   646→            ))
+   647→          )}
+   648→        </ul>
+   649→      </div>
+   650→    </div>
+   651→  )
+   652→}
+   653→
+   654→function SuccessCallout({
+   655→  title,
+   656→  icon: Icon,
+   657→  children,
+   658→}: {
+   659→  title: string
+   660→  icon: React.ComponentType<{ className?: string }>
+   661→  children: React.ReactNode
+   662→}) {
+   663→  return (
+   664→    <div className="rounded-md border border-emerald-200 bg-emerald-50/60 p-3">
+   665→      <div className="flex items-center gap-1.5 font-semibold text-emerald-700">
+   666→        <Icon className="h-4 w-4" />
+   667→        {title}
+   668→      </div>
+   669→      <div className="mt-1.5 text-xs text-slate-700">{children}</div>
+   670→    </div>
+   671→  )
+   672→}
+   673→
+   674→function CreateOrderResult({ result }: { result: any }) {
+   675→  if (result?.error) {
+   676→    return (
+   677→      <p className="text-xs text-red-600">{result.error}</p>
+   678→    )
+   679→  }
+   680→  return (
+   681→    <SuccessCallout title="Order created" icon={ShoppingCart}>
+   682→      <div className="flex items-center gap-2">
+   683→        <Badge className="border-emerald-200 bg-emerald-50 text-emerald-700 font-mono">
+   684→          {result?.orderId ?? '—'}
+   685→        </Badge>
+   686→        <span>{result?.message ?? ''}</span>
+   687→      </div>
+   688→    </SuccessCallout>
+   689→  )
+   690→}
+   691→
+   692→function AdjustInventoryResult({ result }: { result: any }) {
+   693→  if (result?.error) {
+   694→    return <p className="text-xs text-red-600">{result.error}</p>
+   695→  }
+   696→  return (
+   697→    <SuccessCallout title="Inventory adjusted" icon={Wrench}>
+   698→      <div className="space-y-1">
+   699→        <div className="font-mono text-slate-800">
+   700→          {result?.previousQuantity ?? 0} → {result?.newQuantity ?? 0}
+   701→          <span className="ml-2 font-sans text-slate-500">pcs</span>
+   702→        </div>
+   703→        <p>{result?.message ?? ''}</p>
+   704→      </div>
+   705→    </SuccessCallout>
+   706→  )
+   707→}
+   708→
+   709→function TriggerPrintResult({ result }: { result: any }) {
+   710→  if (result?.error) {
+   711→    return <p className="text-xs text-red-600">{result.error}</p>
+   712→  }
+   713→  return (
+   714→    <SuccessCallout title="Print job triggered" icon={Printer}>
+   715→      <div className="space-y-1">
+   716→        <p>{result?.message ?? ''}</p>
+   717→        <div className="flex flex-wrap gap-x-4 gap-y-1">
+   718→          <span>
+   719→            <span className="text-slate-500">Facility:</span>{' '}
+   720→            <span className="font-medium text-slate-800">
+   721→              {result?.facility ?? '—'}
+   722→            </span>
+   723→          </span>
+   724→          {typeof result?.estimatedPrintHours === 'number' && (
+   725→            <span>
+   726→              <span className="text-slate-500">Est. print hours:</span>{' '}
+   727→              <span className="font-mono text-slate-800">
+   728→                {result.estimatedPrintHours}h
+   729→              </span>
+   730→            </span>
+   731→          )}
+   732→        </div>
+   733→      </div>
+   734→    </SuccessCallout>
+   735→  )
+   736→}
+   737→
+   738→// Dispatch on tool name → render the right result component
+   739→function ResultRenderer({ tool, result }: { tool: string; result: any }) {
+   740→  if (!result) return null
+   741→  switch (tool) {
+   742→    case 'answer_question':
+   743→      return <AnswerQuestionResult result={result} />
+   744→    case 'list_low_stock':
+   745→      return <ListLowStockResult result={result} />
+   746→    case 'find_am_candidates':
+   747→      return <AmCandidatesResult result={result} />
+   748→    case 'find_knowledge':
+   749→      return <KnowledgeResult result={result} />
+   750→    case 'generate_onboarding':
+   751→      return <OnboardingResult result={result} />
+   752→    case 'create_order':
+   753→      return <CreateOrderResult result={result} />
+   754→    case 'adjust_inventory':
+   755→      return <AdjustInventoryResult result={result} />
+   756→    case 'trigger_print':
+   757→      return <TriggerPrintResult result={result} />
+   758→    default:
+   759→      return (
+   760→        <pre className="max-h-64 overflow-auto rounded border border-slate-200 bg-slate-50 p-2 text-[11px] text-slate-700">
+   761→          {JSON.stringify(result, null, 2)}
+   762→        </pre>
+   763→      )
+   764→  }
+   765→}
+   766→
+   767→// ─── Agent message bubble ─────────────────────────────────────────────────────
+   768→
+   769→function AgentMessage({
+   770→  message,
+   771→  onApprove,
+   772→  onDismiss,
+   773→  approving,
+   774→}: {
+   775→  message: ChatMessage
+   776→  onApprove: (msgId: string) => void
+   777→  onDismiss: (msgId: string) => void
+   778→  approving: boolean
+   779→}) {
+   780→  const resp = message.response
+   781→  if (!resp && !message.thinking) return null
+   782→
+   783→  return (
+   784→    <motion.div
+   785→      initial={{ opacity: 0, y: 6 }}
+   786→      animate={{ opacity: 1, y: 0 }}
+   787→      className="flex gap-2.5"
+   788→    >
+   789→      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-900 text-white">
+   790→        <Bot className="h-4 w-4" />
+   791→      </div>
+   792→      <div className="min-w-0 flex-1 space-y-2">
+   793→        <div className="rounded-2xl rounded-tl-sm border border-slate-200 bg-muted p-3.5">
+   794→          {/* Thinking shimmer */}
+   795→          {message.thinking && (
+   796→            <div className="flex items-center gap-2 text-sm text-slate-500">
+   797→              <Loader2 className="h-4 w-4 animate-spin text-emerald-500" />
+   798→              <span>Agent is thinking</span>
+   799→              <span className="inline-flex gap-1">
+   800→                <span className="h-1 w-1 animate-bounce rounded-full bg-slate-400 [animation-delay:-0.3s]" />
+   801→                <span className="h-1 w-1 animate-bounce rounded-full bg-slate-400 [animation-delay:-0.15s]" />
+   802→                <span className="h-1 w-1 animate-bounce rounded-full bg-slate-400" />
+   803→              </span>
+   804→            </div>
+   805→          )}
+   806→
+   807→          {!message.thinking && resp && (
+   808→            <>
+   809→              <p className="text-sm font-medium text-slate-800">
+   810→                {resp.plan?.userFacingSummary ?? resp.plan?.intent ?? 'Done.'}
+   811→              </p>
+   812→
+   813→              {/* Badges row */}
+   814→              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+   815→                <IntentBadge tool={resp.plan?.tool ?? ''} />
+   816→                <ConfidenceBadge confidence={resp.plan?.confidence ?? 0} />
+   817→                <StatusBadge
+   818→                  status={resp.status}
+   819→                  autoExecuted={resp.autoExecuted}
+   820→                />
+   821→              </div>
+   822→
+   823→              {/* Reasoning */}
+   824→              {resp.plan?.reasoning && (
+   825→                <p className="mt-2 text-xs leading-relaxed text-slate-500">
+   826→                  <span className="font-medium text-slate-600">Reasoning:</span>{' '}
+   827→                  {resp.plan.reasoning}
+   828→                </p>
+   829→              )}
+   830→
+   831→              {/* Error */}
+   832→              {resp.status === 'failed' && resp.error && (
+   833→                <div className="mt-2 rounded border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs text-red-700">
+   834→                  {resp.error}
+   835→                </div>
+   836→              )}
+   837→
+   838→              {/* Auto-executed result */}
+   839→              {(resp.status === 'executed' || resp.status === 'answered') &&
+   840→                resp.result && (
+   841→                  <div className="mt-3">
+   842→                    <Separator className="mb-3 bg-slate-200" />
+   843→                    <ResultRenderer tool={resp.plan?.tool ?? ''} result={resp.result} />
+   844→                  </div>
+   845→                )}
+   846→
+   847→              {/* Awaiting approval */}
+   848→              {resp.status === 'awaiting_approval' && (
+   849→                <div className="mt-3 space-y-2">
+   850→                  <Separator className="bg-slate-200" />
+   851→                  <div className="rounded-md border border-amber-200 bg-amber-50/60 p-2.5 text-xs text-amber-800">
+   852→                    <div className="flex items-center gap-1.5 font-semibold">
+   853→                      <ShieldCheck className="h-3.5 w-3.5" />
+   854→                      Approval required
+   855→                    </div>
+   856→                    <p className="mt-1 text-amber-700">
+   857→                      This action writes to the database. Review the plan above,
+   858→                      then approve to execute.
+   859→                    </p>
+   860→                  </div>
+   861→                  <div className="flex flex-wrap gap-2">
+   862→                    <Button
+   863→                      size="sm"
+   864→                      onClick={() => onApprove(message.id)}
+   865→                      disabled={approving}
+   866→                      className="bg-emerald-600 text-white hover:bg-emerald-700"
+   867→                    >
+   868→                      {approving ? (
+   869→                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+   870→                      ) : (
+   871→                        <ShieldCheck className="h-3.5 w-3.5" />
+   872→                      )}
+   873→                      Approve &amp; Execute
+   874→                    </Button>
+   875→                    <Button
+   876→                      size="sm"
+   877→                      variant="outline"
+   878→                      onClick={() => onDismiss(message.id)}
+   879→                      disabled={approving}
+   880→                    >
+   881→                      Dismiss
+   882→                    </Button>
+   883→                  </div>
+   884→                </div>
+   885→              )}
+   886→            </>
+   887→          )}
+   888→        </div>
+   889→      </div>
+   890→    </motion.div>
+   891→  )
+   892→}
+   893→
+   894→// ─── User message bubble ──────────────────────────────────────────────────────
+   895→
+   896→function UserMessage({ text }: { text: string }) {
+   897→  return (
+   898→    <motion.div
+   899→      initial={{ opacity: 0, y: 6 }}
+   900→      animate={{ opacity: 1, y: 0 }}
+   901→      className="flex justify-end gap-2.5"
+   902→    >
+   903→      <div className="max-w-[85%] rounded-2xl rounded-tr-sm bg-primary px-3.5 py-2.5 text-sm text-primary-foreground shadow-sm">
+   904→        {text}
+   905→      </div>
+   906→      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-200 text-slate-700">
+   907→        <User className="h-4 w-4" />
+   908→      </div>
+   909→    </motion.div>
+   910→  )
+   911→}
+   912→
+   913→// ─── Audit feed sidebar ───────────────────────────────────────────────────────
+   914→
+   915→function AuditFeed({
+   916→  logs,
+   917→  loading,
+   918→  onRefresh,
+   919→}: {
+   920→  logs: AuditLog[]
+   921→  loading: boolean
+   922→  onRefresh: () => void
+   923→}) {
+   924→  return (
+   925→    <Card className="flex h-full flex-col">
+   926→      <CardHeader className="pb-3">
+   927→        <div className="flex items-center justify-between">
+   928→          <CardTitle className="flex items-center gap-2 text-base">
+   929→            <History className="h-4 w-4 text-slate-500" />
+   930→            Recent Agent Actions
+   931→          </CardTitle>
+   932→          <Button
+   933→            size="sm"
+   934→            variant="ghost"
+   935→            onClick={onRefresh}
+   936→            disabled={loading}
+   937→            className="h-7 px-2"
+   938→          >
+   939→            <RefreshCw
+   940→              className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`}
+   941→            />
+   942→          </Button>
+   943→        </div>
+   944→        <p className="text-xs text-slate-500">
+   945→          Full audit trail — every request, plan, and execution the agent has
+   946→          performed.
+   947→        </p>
+   948→      </CardHeader>
+   949→      <CardContent className="flex-1 overflow-hidden p-0">
+   950→        <div className="max-h-[600px] overflow-y-auto px-4 pb-4 thin-scroll">
+   951→          {logs.length === 0 && !loading ? (
+   952→            <div className="rounded-md border border-dashed border-slate-200 p-6 text-center text-xs text-slate-400">
+   953→              No agent actions yet. Send a request to start the trail.
+   954→            </div>
+   955→          ) : (
+   956→            <div className="space-y-2">
+   957→              {logs.map((log) => {
+   958→                const family = toolFamily(log.tool)
+   959→                const fstyle = FAMILY_STYLES[family]
+   960→                const isExec = log.status === 'executed'
+   961→                const isSug = log.status === 'suggested'
+   962→                const isFail = log.status === 'failed'
+   963→                return (
+   964→                  <div
+   965→                    key={log.actionId}
+   966→                    className="rounded-md border border-slate-200 bg-white p-2.5 text-xs"
+   967→                  >
+   968→                    <div className="flex items-center justify-between gap-2">
+   969→                      <div className="flex items-center gap-1.5">
+   970→                        <span className={`h-1.5 w-1.5 rounded-full ${fstyle.dot}`} />
+   971→                        <span className="font-mono text-[10px] text-slate-400">
+   972→                          {log.actionId}
+   973→                        </span>
+   974→                      </div>
+   975→                      <span className="inline-flex items-center gap-1 text-[10px] text-slate-400">
+   976→                        <Clock className="h-3 w-3" />
+   977→                        {timeAgo(log.createdAt)}
+   978→                      </span>
+   979→                    </div>
+   980→                    <p className="mt-1 line-clamp-2 text-slate-700">{log.request}</p>
+   981→                    <div className="mt-1.5 flex flex-wrap items-center gap-1">
+   982→                      <Badge
+   983→                        variant="outline"
+   984→                        className={`text-[10px] ${fstyle.badge}`}
+   985→                      >
+   986→                        {TOOL_META[log.tool]?.label ?? log.tool}
+   987→                      </Badge>
+   988→                      {isExec && (
+   989→                        <Badge className="border-emerald-200 bg-emerald-50 text-emerald-700 text-[10px]">
+   990→                          <CheckCircle2 className="h-2.5 w-2.5" />
+   991→                          {log.autoExecuted ? 'Auto' : 'Executed'}
+   992→                        </Badge>
+   993→                      )}
+   994→                      {isSug && (
+   995→                        <Badge className="border-amber-200 bg-amber-50 text-amber-700 text-[10px]">
+   996→                          <ShieldCheck className="h-2.5 w-2.5" />
+   997→                          Awaiting
+   998→                        </Badge>
+   999→                      )}
+  1000→                      {isFail && (
+  1001→                        <Badge className="border-red-200 bg-red-50 text-red-700 text-[10px]">
+  1002→                          <XCircle className="h-2.5 w-2.5" />
+  1003→                          Failed
+  1004→                        </Badge>
+  1005→                      )}
+  1006→                    </div>
+  1007→                    {log.confidence != null && (
+  1008→                      <div className="mt-1 text-[10px] text-slate-400">
+  1009→                        {Math.round((log.confidence ?? 0) * 100)}% confidence
+  1010→                      </div>
+  1011→                    )}
+  1012→                  </div>
+  1013→                )
+  1014→              })}
+  1015→            </div>
+  1016→          )}
+  1017→        </div>
+  1018→      </CardContent>
+  1019→    </Card>
+  1020→  )
+  1021→}
+  1022→
+  1023→// ─── Main component ───────────────────────────────────────────────────────────
+  1024→
+  1025→export function AIAgentConsole() {
+  1026→  const [messages, setMessages] = useState<ChatMessage[]>([])
+  1027→  const [input, setInput] = useState('')
+  1028→  const [sending, setSending] = useState(false)
+  1029→  const [approvingId, setApprovingId] = useState<string | null>(null)
+  1030→  const [logs, setLogs] = useState<AuditLog[]>([])
+  1031→  const [logsLoading, setLogsLoading] = useState(false)
+  1032→
+  1033→  const threadRef = useRef<HTMLDivElement>(null)
+  1034→  const inputRef = useRef<HTMLTextAreaElement>(null)
+  1035→
+  1036→  // ── Fetch audit feed ─────────────────────────────────────────────────────
+  1037→  const fetchLogs = useCallback(async () => {
+  1038→    setLogsLoading(true)
+  1039→    try {
+  1040→      const res = await fetch('/api/ai/agent?limit=20', { cache: 'no-store' })
+  1041→      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  1042→      const json = await res.json()
+  1043→      setLogs((json.logs as AuditLog[]) ?? [])
+  1044→    } catch (e: any) {
+  1045→      // Silent — the audit feed is secondary
+  1046→      console.error('audit feed fetch failed', e)
+  1047→    } finally {
+  1048→      setLogsLoading(false)
+  1049→    }
+  1050→  }, [])
+  1051→
+  1052→  useEffect(() => {
+  1053→    fetchLogs()
+  1054→  }, [fetchLogs])
+  1055→
+  1056→  // ── Auto-scroll to bottom when new messages arrive ───────────────────────
+  1057→  useEffect(() => {
+  1058→    if (threadRef.current) {
+  1059→      threadRef.current.scrollTop = threadRef.current.scrollHeight
+  1060→    }
+  1061→  }, [messages])
+  1062→
+  1063→  // ── Send a new request ───────────────────────────────────────────────────
+  1064→  const sendRequest = useCallback(
+  1065→    async (text: string) => {
+  1066→      const trimmed = text.trim()
+  1067→      if (!trimmed || sending) return
+  1068→
+  1069→      const userMsgId = genId('u')
+  1070→      const agentMsgId = genId('a')
+  1071→      const userMsg: ChatMessage = {
+  1072→        id: userMsgId,
+  1073→        role: 'user',
+  1074→        text: trimmed,
+  1075→      }
+  1076→      const thinkingMsg: ChatMessage = {
+  1077→        id: agentMsgId,
+  1078→        role: 'agent',
+  1079→        thinking: true,
+  1080→      }
+  1081→      setMessages((prev) => [...prev, userMsg, thinkingMsg])
+  1082→      setInput('')
+  1083→      setSending(true)
+  1084→
+  1085→      try {
+  1086→        const res = await fetch('/api/ai/agent', {
+  1087→          method: 'POST',
+  1088→          headers: { 'Content-Type': 'application/json' },
+  1089→          body: JSON.stringify({ request: trimmed, autoExecute: false }),
+  1090→        })
+  1091→        const json = (await res.json()) as AgentResponse
+  1092→        if (!res.ok) {
+  1093→          throw new Error(json?.error ?? `HTTP ${res.status}`)
+  1094→        }
+  1095→        setMessages((prev) =>
+  1096→          prev.map((m) =>
+  1097→            m.id === agentMsgId
+  1098→              ? {
+  1099→                  ...m,
+  1100→                  thinking: false,
+  1101→                  response: json,
+  1102→                }
+  1103→              : m,
+  1104→          ),
+  1105→        )
+  1106→        // Refresh audit feed so the new action shows up
+  1107→        fetchLogs()
+  1108→      } catch (e: any) {
+  1109→        const errResp: AgentResponse = {
+  1110→          sessionId: 'sess-error',
+  1111→          request: trimmed,
+  1112→          plan: {
+  1113→            intent: 'unknown',
+  1114→            tool: 'unknown',
+  1115→            parameters: {},
+  1116→            confidence: 0,
+  1117→            requiresApproval: false,
+  1118→            reasoning: 'The agent request failed.',
+  1119→            userFacingSummary: 'Request failed.',
+  1120→          },
+  1121→          autoExecuted: false,
+  1122→          status: 'failed',
+  1123→          error: e?.message ?? 'Unknown error',
+  1124→        }
+  1125→        setMessages((prev) =>
+  1126→          prev.map((m) =>
+  1127→            m.id === agentMsgId
+  1128→              ? { ...m, thinking: false, response: errResp }
+  1129→              : m,
+  1130→          ),
+  1131→        )
+  1132→        toast.error('Agent request failed', {
+  1133→          description: e?.message ?? 'Unknown error',
+  1134→        })
+  1135→      } finally {
+  1136→        setSending(false)
+  1137→      }
+  1138→    },
+  1139→    [sending, fetchLogs],
+  1140→  )
+  1141→
+  1142→  // ── Approve an awaiting-approval action ──────────────────────────────────
+  1143→  const approveAction = useCallback(
+  1144→    async (msgId: string) => {
+  1145→      const msg = messages.find((m) => m.id === msgId)
+  1146→      if (!msg?.response?.actionId) return
+  1147→      const actionId = msg.response.actionId
+  1148→      const originalRequest = msg.response.request
+  1149→      setApprovingId(msgId)
+  1150→      try {
+  1151→        const res = await fetch('/api/ai/agent', {
+  1152→          method: 'POST',
+  1153→          headers: { 'Content-Type': 'application/json' },
+  1154→          body: JSON.stringify({
+  1155→            request: originalRequest,
+  1156→            mode: 'approve',
+  1157→            actionId,
+  1158→          }),
+  1159→        })
+  1160→        const json = (await res.json()) as AgentResponse
+  1161→        if (!res.ok) {
+  1162→          throw new Error(json?.error ?? `HTTP ${res.status}`)
+  1163→        }
+  1164→        setMessages((prev) =>
+  1165→          prev.map((m) =>
+  1166→            m.id === msgId ? { ...m, response: json } : m,
+  1167→          ),
+  1168→        )
+  1169→        fetchLogs()
+  1170→        toast.success('Action approved & executed')
+  1171→      } catch (e: any) {
+  1172→        toast.error('Approval failed', {
+  1173→          description: e?.message ?? 'Unknown error',
+  1174→        })
+  1175→      } finally {
+  1176→        setApprovingId(null)
+  1177→      }
+  1178→    },
+  1179→    [messages, fetchLogs],
+  1180→  )
+  1181→
+  1182→  // ── Dismiss an awaiting-approval action (local-only) ─────────────────────
+  1183→  const dismissAction = useCallback((msgId: string) => {
+  1184→    setMessages((prev) =>
+  1185→      prev.map((m) =>
+  1186→        m.id === msgId && m.response
+  1187→          ? {
+  1188→              ...m,
+  1189→              response: {
+  1190→                ...m.response,
+  1191→                status: 'failed' as AgentStatus,
+  1192→                error: 'Dismissed by user.',
+  1193→              },
+  1194→            }
+  1195→          : m,
+  1196→      ),
+  1197→    )
+  1198→  }, [])
+  1199→
+  1200→  // ── Suggestion click → fill input ────────────────────────────────────────
+  1201→  const onSuggestionClick = (text: string) => {
+  1202→    setInput(text)
+  1203→    inputRef.current?.focus()
+  1204→  }
+  1205→
+  1206→  // ── Enter to send, Shift+Enter for newline ───────────────────────────────
+  1207→  const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  1208→    if (e.key === 'Enter' && !e.shiftKey) {
+  1209→      e.preventDefault()
+  1210→      sendRequest(input)
+  1211→    }
+  1212→  }
+  1213→
+  1214→  const emptyThread = messages.length === 0
+  1215→
+  1216→  return (
+  1217→    <div className="space-y-4">
+  1218→      {/* ─── Header card ─────────────────────────────────────────────────── */}
+  1219→      <Card className="overflow-hidden">
+  1220→        <CardContent className="p-6">
+  1221→          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+  1222→            <div className="space-y-1.5">
+  1223→              <div className="flex items-center gap-2">
+  1224→                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-900 text-white">
+  1225→                  <Sparkles className="h-5 w-5" />
+  1226→                </div>
+  1227→                <div>
+  1228→                  <h2 className="text-xl font-semibold tracking-tight text-slate-900">
+  1229→                    AI Operations Agent
+  1230→                  </h2>
+  1231→                  <p className="text-sm text-slate-500">
+  1232→                    Type a request in plain English. The agent will either
+  1233→                    answer immediately or propose an action for your approval.
+  1234→                  </p>
+  1235→                </div>
+  1236→              </div>
+  1237→            </div>
+  1238→            <div className="flex shrink-0 items-center gap-2">
+  1239→              <Badge className="border-emerald-200 bg-emerald-50 text-emerald-700">
+  1240→                <CheckCircle2 className="h-3 w-3" />
+  1241→                Auto-execute: safe tools
+  1242→              </Badge>
+  1243→              <Badge className="border-amber-200 bg-amber-50 text-amber-700">
+  1244→                <ShieldCheck className="h-3 w-3" />
+  1245→                Approve: write tools
+  1246→              </Badge>
+  1247→            </div>
+  1248→          </div>
+  1249→
+  1250→          {/* Interview-grounding quote banner */}
+  1251→          <div className="mt-4 flex items-start gap-3 rounded-lg border border-amber-200/70 bg-gradient-to-r from-amber-50 to-emerald-50/40 p-3">
+  1252→            <Quote className="h-5 w-5 shrink-0 text-amber-500" />
+  1253→            <div className="text-sm text-slate-700">
+  1254→              <span className="italic text-slate-800">
+  1255→                “The real power [of AI] is that lack of technical expertise.
+  1256→                There is a real lack. It&apos;s not like it was 30 years ago
+  1257→                where there was always one person who knew everything. Those
+  1258→                guys are gone.”
+  1259→              </span>
+  1260→              <span className="mt-1 block text-xs font-medium text-slate-500">
+  1261→                — Jim Granger, former Managing Director, MAN Energy Solutions
+  1262→                Canada (Interview #23)
+  1263→              </span>
+  1264→            </div>
+  1265→          </div>
+  1266→        </CardContent>
+  1267→      </Card>
+  1268→
+  1269→      {/* ─── Suggested prompt chips ──────────────────────────────────────── */}
+  1270→      <div className="flex flex-wrap gap-2">
+  1271→        {SUGGESTIONS.map((s) => {
+  1272→          const fstyle = FAMILY_STYLES[s.family]
+  1273→          return (
+  1274→            <button
+  1275→              key={s.text}
+  1276→              type="button"
+  1277→              onClick={() => onSuggestionClick(s.text)}
+  1278→              className={`group inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-slate-100 ${fstyle.badge}`}
+  1279→              title={s.hint}
+  1280→            >
+  1281→              <span className={`h-1.5 w-1.5 rounded-full ${fstyle.dot}`} />
+  1282→              <span className="text-slate-800">{s.text}</span>
+  1283→              <span className="hidden text-[10px] text-slate-400 sm:inline">
+  1284→                · {s.hint}
+  1285→              </span>
+  1286→            </button>
+  1287→          )
+  1288→        })}
+  1289→      </div>
+  1290→
+  1291→      {/* ─── Main grid: chat (2/3) + audit feed (1/3) ───────────────────── */}
+  1292→      <div className="grid gap-4 lg:grid-cols-3">
+  1293→        {/* Chat card */}
+  1294→        <Card className="flex flex-col lg:col-span-2">
+  1295→          <CardHeader className="border-b border-slate-100 pb-3">
+  1296→            <CardTitle className="flex items-center gap-2 text-base">
+  1297→              <Bot className="h-4 w-4 text-emerald-500" />
+  1298→              Agent Console
+  1299→              <span className="ml-auto text-xs font-normal text-slate-400">
+  1300→                {messages.length} message{messages.length === 1 ? '' : 's'}
+  1301→              </span>
+  1302→            </CardTitle>
+  1303→          </CardHeader>
+  1304→
+  1305→          {/* Thread */}
+  1306→          <div
+  1307→            ref={threadRef}
+  1308→            className="max-h-[560px] min-h-[320px] flex-1 space-y-4 overflow-y-auto p-4 thin-scroll"
+  1309→          >
+  1310→            {emptyThread && (
+  1311→              <div className="flex h-full min-h-[280px] flex-col items-center justify-center gap-3 text-center">
+  1312→                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+  1313→                  <Sparkles className="h-7 w-7" />
+  1314→                </div>
+  1315→                <div>
+  1316→                  <p className="text-sm font-medium text-slate-700">
+  1317→                    Ask the agent anything
+  1318→                  </p>
+  1319→                  <p className="mt-1 max-w-sm text-xs text-slate-500">
+  1320→                    Try “Which parts are out of stock?” or “Generate an
+  1321→                    onboarding plan based on Robert&apos;s knowledge.” The agent
+  1322→                    auto-runs safe queries and asks for approval on writes.
+  1323→                  </p>
+  1324→                </div>
+  1325→              </div>
+  1326→            )}
+  1327→            <AnimatePresence initial={false}>
+  1328→              {messages.map((m) =>
+  1329→                m.role === 'user' ? (
+  1330→                  <UserMessage key={m.id} text={m.text ?? ''} />
+  1331→                ) : (
+  1332→                  <AgentMessage
+  1333→                    key={m.id}
+  1334→                    message={m}
+  1335→                    onApprove={approveAction}
+  1336→                    onDismiss={dismissAction}
+  1337→                    approving={approvingId === m.id}
+  1338→                  />
+  1339→                ),
+  1340→              )}
+  1341→            </AnimatePresence>
+  1342→          </div>
+  1343→
+  1344→          {/* Sticky input bar */}
+  1345→          <div className="border-t border-slate-100 p-3">
+  1346→            <div className="flex items-end gap-2">
+  1347→              <Textarea
+  1348→                ref={inputRef}
+  1349→                value={input}
+  1350→                onChange={(e) => setInput(e.target.value)}
+  1351→                onKeyDown={onKeyDown}
+  1352→                placeholder="Type a request… (Enter to send, Shift+Enter for newline)"
+  1353→                rows={2}
+  1354→                disabled={sending}
+  1355→                className="min-h-[44px] resize-none bg-white text-sm"
+  1356→              />
+  1357→              <Button
+  1358→                onClick={() => sendRequest(input)}
+  1359→                disabled={sending || !input.trim()}
+  1360→                className="h-11 shrink-0 bg-slate-900 text-white hover:bg-slate-800"
+  1361→              >
+  1362→                {sending ? (
+  1363→                  <Loader2 className="h-4 w-4 animate-spin" />
+  1364→                ) : (
+  1365→                  <>
+  1366→                    <Send className="h-4 w-4" />
+  1367→                    <span className="hidden sm:inline">Send</span>
+  1368→                  </>
+  1369→                )}
+  1370→              </Button>
+  1371→            </div>
+  1372→            <p className="mt-1.5 text-[10px] text-slate-400">
+  1373→              The agent auto-executes read-only tools (list, find, generate,
+  1374→              answer) and surfaces write tools (order, adjust, print) for your
+  1375→              approval. Every action is logged to the audit feed.
+  1376→            </p>
+  1377→          </div>
+  1378→        </Card>
+  1379→
+  1380→        {/* Audit feed */}
+  1381→        <div className="lg:col-span-1">
+  1382→          <AuditFeed
+  1383→            logs={logs}
+  1384→            loading={logsLoading}
+  1385→            onRefresh={fetchLogs}
+  1386→          />
+  1387→        </div>
+  1388→      </div>
+  1389→
+  1390→      {/* Thin custom scrollbar styling — applied via .thin-scroll */}
+  1391→      <style jsx global>{`
+  1392→        .thin-scroll {
+  1393→          scrollbar-width: thin;
+  1394→          scrollbar-color: #cbd5e1 transparent;
+  1395→        }
+  1396→        .thin-scroll::-webkit-scrollbar {
+  1397→          width: 6px;
+  1398→          height: 6px;
+  1399→        }
+  1400→        .thin-scroll::-webkit-scrollbar-track {
+  1401→          background: transparent;
+  1402→        }
+  1403→        .thin-scroll::-webkit-scrollbar-thumb {
+  1404→          background-color: #cbd5e1;
+  1405→          border-radius: 3px;
+  1406→        }
+  1407→        .thin-scroll::-webkit-scrollbar-thumb:hover {
+  1408→          background-color: #94a3b8;
+  1409→        }
+  1410→      `}</style>
+  1411→    </div>
+  1412→  )
+  1413→}
+  1414→

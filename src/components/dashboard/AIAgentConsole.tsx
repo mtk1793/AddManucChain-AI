@@ -27,6 +27,11 @@ import {
   History,
   Quote,
   ScanLine,
+  Brain,
+  Zap,
+  Database,
+  Link2,
+  ArrowUpRight,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -764,6 +769,198 @@ function ResultRenderer({ tool, result }: { tool: string; result: any }) {
   }
 }
 
+// ─── Cross-dashboard navigation helpers ───────────────────────────────────────
+
+interface NavTarget {
+  label: string
+  pageId: string
+}
+
+// Map a tool + status to the list of related dashboards worth jumping to.
+// `answer_question` returns no targets (it's a pure answer).
+function getToolNavTargets(tool: string, status: AgentStatus): NavTarget[] {
+  const targets: NavTarget[] = []
+  switch (tool) {
+    case 'list_low_stock':
+      targets.push({ label: 'Open Smart Inventory', pageId: 'smart_inventory' })
+      break
+    case 'find_am_candidates':
+      targets.push({ label: 'Open Part Scanner', pageId: 'ai_part_scanner' })
+      targets.push({ label: 'Open AM Feasibility', pageId: 'feasibility' })
+      break
+    case 'find_knowledge':
+      targets.push({ label: 'Open Workforce Knowledge', pageId: 'workforce_knowledge' })
+      break
+    case 'generate_onboarding':
+      targets.push({ label: 'Open Workforce Knowledge', pageId: 'workforce_knowledge' })
+      break
+    case 'create_order':
+      if (status === 'awaiting_approval') {
+        targets.push({ label: 'Open Orders', pageId: 'orders' })
+      }
+      break
+    case 'adjust_inventory':
+      if (status === 'awaiting_approval') {
+        targets.push({ label: 'Open Smart Inventory', pageId: 'smart_inventory' })
+      }
+      break
+    case 'trigger_print':
+      if (status === 'awaiting_approval') {
+        targets.push({ label: 'Open My Printers', pageId: 'my_printers' })
+      }
+      break
+    case 'answer_question':
+    default:
+      break
+  }
+  return targets
+}
+
+// Contextual nav buttons rendered at the bottom of an agent result card.
+function ResultNavButtons({
+  targets,
+  onNavigate,
+}: {
+  targets: NavTarget[]
+  onNavigate?: (pageId: string) => void
+}) {
+  if (!onNavigate || targets.length === 0) return null
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-slate-200 pt-2.5">
+      <span className="mr-1 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+        <Link2 className="h-3 w-3" />
+        Jump to
+      </span>
+      {targets.map((t) => (
+        <Button
+          key={t.pageId}
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={() => onNavigate(t.pageId)}
+          className="h-7 gap-1 px-2 text-xs text-slate-700 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700"
+        >
+          {t.label}
+          <ArrowUpRight className="h-3 w-3" />
+        </Button>
+      ))}
+    </div>
+  )
+}
+
+// Static catalogue of connected dashboards for the top-of-component cross-link bar.
+const CONNECTED_DASHBOARDS: {
+  pageId: string
+  label: string
+  description: string
+  Icon: React.ComponentType<{ className?: string }>
+  accent: string
+}[] = [
+  {
+    pageId: 'smart_inventory',
+    label: 'Smart Inventory',
+    description: 'Manage stock manually or via AI',
+    Icon: Boxes,
+    accent: 'text-emerald-600 bg-emerald-50 border-emerald-200 hover:border-emerald-300',
+  },
+  {
+    pageId: 'workforce_knowledge',
+    label: 'Workforce Knowledge',
+    description: 'Senior expert knowledge base',
+    Icon: GraduationCap,
+    accent: 'text-violet-600 bg-violet-50 border-violet-200 hover:border-violet-300',
+  },
+  {
+    pageId: 'ai_part_scanner',
+    label: 'AI Part Scanner',
+    description: 'Find AM candidates',
+    Icon: Brain,
+    accent: 'text-teal-600 bg-teal-50 border-teal-200 hover:border-teal-300',
+  },
+  {
+    pageId: 'feasibility',
+    label: 'AM Feasibility',
+    description: '30-second AM verdict',
+    Icon: Zap,
+    accent: 'text-amber-600 bg-amber-50 border-amber-200 hover:border-amber-300',
+  },
+  {
+    pageId: 'physical_inventory',
+    label: 'Physical Inventory',
+    description: 'All spare parts',
+    Icon: Database,
+    accent: 'text-slate-600 bg-slate-50 border-slate-200 hover:border-slate-300',
+  },
+  {
+    pageId: 'audit',
+    label: 'Audit Chain',
+    description: 'Full system audit log',
+    Icon: FileText,
+    accent: 'text-rose-600 bg-rose-50 border-rose-200 hover:border-rose-300',
+  },
+]
+
+function ConnectedDashboardsBar({
+  onNavigate,
+}: {
+  onNavigate?: (pageId: string) => void
+}) {
+  const interactive = typeof onNavigate === 'function'
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+        <Link2 className="h-3.5 w-3.5 text-emerald-500" />
+        Connected Dashboards
+        <span className="ml-1 text-[10px] font-normal normal-case text-slate-400">
+          — jump straight to the related console
+        </span>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {CONNECTED_DASHBOARDS.map((d) => {
+          const cls = `group flex w-[180px] shrink-0 cursor-pointer flex-col gap-1 rounded-lg border bg-white p-3 text-left transition-all hover:shadow-md ${d.accent} ${
+            interactive ? '' : 'opacity-50 cursor-not-allowed hover:shadow-none'
+          }`
+          if (!interactive) {
+            return (
+              <div key={d.pageId} className={cls} aria-disabled="true">
+                <div className="flex items-center gap-1.5">
+                  <d.Icon className="h-4 w-4" />
+                  <span className="text-xs font-semibold text-slate-800">
+                    {d.label}
+                  </span>
+                </div>
+                <p className="text-[11px] leading-snug text-slate-500">
+                  {d.description}
+                </p>
+              </div>
+            )
+          }
+          return (
+            <button
+              key={d.pageId}
+              type="button"
+              onClick={() => onNavigate?.(d.pageId)}
+              className={cls}
+              title={d.description}
+            >
+              <div className="flex items-center gap-1.5">
+                <d.Icon className="h-4 w-4" />
+                <span className="text-xs font-semibold text-slate-800">
+                  {d.label}
+                </span>
+                <ArrowUpRight className="ml-auto h-3 w-3 text-slate-300 transition-colors group-hover:text-slate-500" />
+              </div>
+              <p className="text-[11px] leading-snug text-slate-500">
+                {d.description}
+              </p>
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 // ─── Agent message bubble ─────────────────────────────────────────────────────
 
 function AgentMessage({
@@ -771,11 +968,13 @@ function AgentMessage({
   onApprove,
   onDismiss,
   approving,
+  onNavigate,
 }: {
   message: ChatMessage
   onApprove: (msgId: string) => void
   onDismiss: (msgId: string) => void
   approving: boolean
+  onNavigate?: (pageId: string) => void
 }) {
   const resp = message.response
   if (!resp && !message.thinking) return null
@@ -883,6 +1082,17 @@ function AgentMessage({
                   </div>
                 </div>
               )}
+
+              {/* Cross-dashboard navigation buttons — context-aware per tool/status */}
+              {(() => {
+                const targets = getToolNavTargets(
+                  resp.plan?.tool ?? '',
+                  resp.status,
+                )
+                return (
+                  <ResultNavButtons targets={targets} onNavigate={onNavigate} />
+                )
+              })()}
             </>
           )}
         </div>
@@ -1022,7 +1232,11 @@ function AuditFeed({
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function AIAgentConsole() {
+export function AIAgentConsole({
+  onNavigate,
+}: {
+  onNavigate?: (pageId: string) => void
+} = {}) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
@@ -1266,6 +1480,9 @@ export function AIAgentConsole() {
         </CardContent>
       </Card>
 
+      {/* ─── Connected dashboards cross-link bar ────────────────────────── */}
+      <ConnectedDashboardsBar onNavigate={onNavigate} />
+
       {/* ─── Suggested prompt chips ──────────────────────────────────────── */}
       <div className="flex flex-wrap gap-2">
         {SUGGESTIONS.map((s) => {
@@ -1335,6 +1552,7 @@ export function AIAgentConsole() {
                     onApprove={approveAction}
                     onDismiss={dismissAction}
                     approving={approvingId === m.id}
+                    onNavigate={onNavigate}
                   />
                 ),
               )}

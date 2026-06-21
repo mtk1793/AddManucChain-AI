@@ -694,3 +694,120 @@ Unresolved Issues / Risks (priority for next phase):
 - The Ask-a-Senior keyword search is basic (term overlap scoring). Phase 2: add semantic search via embeddings.
 - The onboarding generator's `recommendedMentor` is LLM-generated text; could link to an actual Employee record.
 - Next feature candidates: Certification Pathway Builder (#45 Saxty 7-step), Smart Manuals RAG over uploaded PDFs (#64 Dalpe), Field-Technician mobile assistant (#82 Kobalch).
+
+---
+Task ID: 7-B
+Agent: full-stack-developer (WorkforceKnowledgePage cross-nav)
+Task: Add onNavigate prop + Connected Dashboards bar + Ask-a-Senior handoff link to WorkforceKnowledgePage
+
+Work Log:
+- Read worklog.md and the full WorkforceKnowledgePage.tsx (~2161 lines) to locate the component signature (line ~1009), the header card end / Tabs start (line ~1257), and the Ask-a-Senior answer card (line ~1614) with its citedDocs sources block.
+- Added lucide-react icons `Bot, Boxes, Package, KeyRound, Link2` to the existing import block (`FileText` was already imported).
+- Changed the component signature from `export function WorkforceKnowledgePage()` to a destructured form accepting `onNavigate?: (pageId: string) => void` with a default empty object, so the `onNavigate={setActiveTab}` prop passed by page.tsx no longer breaks TypeScript.
+- Added a `connectedDashboards` config array inside the component (right before the `return`) defining the 5 cross-links: ai_agent (Bot/emerald), smart_inventory (Boxes/amber), audit (FileText/slate), orders (Package/teal), print_queue (KeyRound/violet) — each with an icon, label, 1-line description, icon-wrap bg, icon color, and accent border.
+- Inserted a "Connected Dashboards" cross-link bar between the header card and the Tabs: a `Link2` icon + heading row, then a responsive flex-wrap row of compact ~180px-wide link cards (p-3, border, rounded-lg). Each card calls `onNavigate?.(d.id)` on click. When `onNavigate` is undefined the cards render disabled with `opacity-50 cursor-not-allowed`. Hover states use `hover:shadow-md` plus the per-card accent border. No indigo/blue colors used.
+- Added a footer handoff inside the Ask-a-Senior answer card's CardContent: when `onNavigate` is defined AND `askResult.citedDocs.length > 0`, a small row with "Need this acted on automatically?" + an emerald-outlined "Open AI Operations Agent" button (Bot icon + ArrowRight) that calls `onNavigate('ai_agent')`. Only renders when onNavigate is defined, per spec.
+- Verified no other behavior changed (tabs, employee directory, knowledge library, ask-senior query flow, onboarding generator untouched; no API changes; no new fetches).
+- Ran `bun run lint` from /home/z/my-project → exits 0 with no warnings/errors.
+
+Stage Summary:
+- WorkforceKnowledgePage now accepts the `onNavigate` prop (fixing the page.tsx TypeScript break) and is wired into the cross-dashboard navigation mesh.
+- A "Connected Dashboards" bar near the top links out to AI Operations Agent, Smart Inventory Console, Audit Chain, Orders, and Print Approval, with graceful disabled state when navigation is unavailable.
+- The Ask-a-Senior answer card now offers a contextual "Open AI Operations Agent" handoff when an answer has cited docs and navigation is available — closing the loop from "ask the captured knowledge" to "let the autonomous agent act on it".
+- All changes are confined to WorkforceKnowledgePage.tsx; lint passes (exit 0); existing color palette (emerald/amber/violet/slate/teal) preserved with no indigo/blue.
+
+---
+Task ID: 7-C
+Agent: full-stack-developer (SmartInventoryConsole cross-nav)
+Task: Add onNavigate prop + Connected Dashboards bar + contextual decision navigation buttons to SmartInventoryConsole
+
+Work Log:
+- Read worklog.md and the full SmartInventoryConsole.tsx (~2100 lines) to map the component tree (Header → KpiRow → ModeToggle → PartsTable → AiPanel(DecisionCard) → AuditTrail) and confirm `onNavigate` was not previously accepted.
+- Added 6 new lucide-react icons to the import block: Bot, FileBox, Database, GraduationCap, Link2, ArrowUpRight (Brain/Zap already imported).
+- Introduced a `CONNECTED_DASHBOARDS` constant + new `ConnectedDashboardsBar` sub-component: a responsive flex-wrap row of 6 compact ~180px link cards (AI Operations Agent→ai_agent, AI Part Scanner→ai_part_scanner, AM Feasibility→feasibility, Blueprint Library→blueprints, Physical Inventory→physical_inventory, Workforce Knowledge→workforce_knowledge), each with an icon, label, 1-line description, and emerald/violet/amber/sky/slate/rose accent (no indigo/blue). Cards are clickable when `onNavigate` is defined; otherwise rendered non-interactive with opacity-50 + cursor-not-allowed. Section heading uses a Link2 icon.
+- Changed the main component signature from `export function SmartInventoryConsole()` to `export function SmartInventoryConsole({ onNavigate }: { onNavigate?: (pageId: string) => void } = {})` so the prop `page.tsx` already passes (`onNavigate={setActiveTab}`) is accepted and the component stays backward-compatible when used without it.
+- Inserted `<ConnectedDashboardsBar onNavigate={onNavigate} />` in the main return between `<Header />` and `<KpiRow>` so the cross-link bar sits right after the title/header area, before the KPI row.
+- Threaded `onNavigate` through `AiPanel` (new optional prop on its signature + forwarded into the component props type) and passed it from the main component's `<AiPanel>` usage.
+- Added an optional `onNavigate` prop to `DecisionCard` and rendered contextual ghost buttons in a new border-t section at the bottom of each card, gated on `onNavigate` being defined:
+  * `action === 'digitize_for_am' && targetFacilityName` → "Open Blueprint Library" button → `blueprints` (violet accent, FileBox icon)
+  * `action === 'reorder'` → "Open Orders" button → `orders` (amber accent, Package icon)
+  Both buttons use a trailing ArrowUpRight icon to signal cross-dashboard navigation.
+- Did NOT touch the parts table, KPI cards, manual mode, AI assist mode, audit trail, dialogs, or any API/fetch logic. Did NOT modify any file other than SmartInventoryConsole.tsx.
+- Ran `bun run lint` from /home/z/my-project → exit code 0. Verified dev.log shows `GET / 200` with no compile errors after the edits.
+
+Stage Summary:
+- SmartInventoryConsole is no longer isolated: it now accepts `onNavigate={(pageId)=>void}` (matching what `page.tsx` already passes), exposes a top "Connected Dashboards" bar linking to all 6 related dashboards, and adds contextual "Open Blueprint Library" / "Open Orders" buttons on AI DecisionCards for digitize_for_am and reorder actions respectively.
+- All navigation is gracefully degradable: if `onNavigate` is undefined the link cards render disabled (opacity-50, cursor-not-allowed) and the decision-card buttons are hidden entirely.
+- TypeScript-safe (optional prop with `= {}` default keeps the no-arg call site valid), lint-clean (exit 0), and uses only the existing emerald/amber/violet/slate/sky/rose palette with lucide-react + shadcn/ui Button/Card — no new deps, no API changes, no other files touched.
+
+---
+Task ID: 7-A
+Agent: full-stack-developer (AIAgentConsole cross-nav)
+Task: Add onNavigate prop + Connected Dashboards bar + contextual result navigation buttons to AIAgentConsole
+
+Work Log:
+- Read worklog.md and the existing AIAgentConsole.tsx (~1414 lines) to understand the agent's chat/audit architecture (color families, per-tool result renderers, AgentMessage bubble, AIAgentConsole main component).
+- Added 5 new lucide-react icons to imports: Brain, Zap, Database, Link2, ArrowUpRight (Boxes/GraduationCap/FileText/ScanLine were already imported).
+- Added three new helper modules immediately after ResultRenderer:
+  • `getToolNavTargets(tool, status)` — pure function mapping tool+status to an array of `{label, pageId}` targets. Implements the spec's mapping verbatim (answer_question returns []).
+  • `ResultNavButtons` — small ghost/outline Button row rendered at the bottom of the agent message card. Returns null if `onNavigate` is undefined or targets is empty, so existing isolated usage stays clean.
+  • `CONNECTED_DASHBOARDS` catalogue + `ConnectedDashboardsBar` — the top-of-component cross-link bar with 6 cards (Smart Inventory / Workforce Knowledge / AI Part Scanner / AM Feasibility / Physical Inventory / Audit Chain). Each card has icon + label + 1-line description, ~180px wide, emerald/violet/teal/amber/slate/rose accents (NO indigo/blue). When `onNavigate` is undefined, cards render non-interactive (opacity-50, cursor-not-allowed) per spec.
+- Changed the `AIAgentConsole` export signature from `export function AIAgentConsole()` to `export function AIAgentConsole({ onNavigate }: { onNavigate?: (pageId: string) => void } = {})` — matches what `page.tsx` now passes (`onNavigate={setActiveTab}`).
+- Added `<ConnectedDashboardsBar onNavigate={onNavigate} />` in the main component's JSX right after the header card and before the suggested-prompt chips.
+- Threaded `onNavigate` through: `AIAgentConsole` → `AgentMessage` (new optional prop) → `ResultNavButtons`. Inside `AgentMessage`, after the auto-executed-result block and the awaiting-approval block, render `<ResultNavButtons targets={getToolNavTargets(resp.plan?.tool ?? '', resp.status)} onNavigate={onNavigate} />` at the bottom of the message card.
+- Verified `bun run lint` exits 0 with no warnings or errors.
+- Verified dev server log shows `/` returns HTTP 200 — component still compiles and renders with the new props/JSX.
+
+Stage Summary:
+- AIAgentConsole now accepts `onNavigate?: (pageId: string) => void` (fixes the TypeScript break introduced when page.tsx started passing `onNavigate={setActiveTab}`).
+- A "Connected Dashboards" cross-link bar (6 cards, responsive flex-wrap) sits between the header card and the suggestion chips — clickable when onNavigate is provided, visually disabled (opacity-50) when not.
+- Every agent response now ends with context-aware "Jump to" navigation buttons (e.g. list_low_stock → Open Smart Inventory; find_am_candidates → Open Part Scanner + Open AM Feasibility; awaiting-approval create_order → Open Orders, etc.). `answer_question` shows no buttons. Buttons are only rendered when `onNavigate` is defined.
+- No changes to chat UX, audit feed, suggestions, API contract, color palette (emerald/amber/violet/slate/red/teal — no indigo/blue), or any other file. Only `AIAgentConsole.tsx` was modified.
+
+---
+Task ID: 8
+Agent: main (Phase 5 — AI Reliability Fix + Cross-Dashboard Interconnection)
+Task: Fix the "Request failed. unknown 0% confidence Failed" AI error and connect all dashboards to each other.
+
+Work Log:
+- Diagnosed the AI failure: the z-ai-web-dev-sdk LLM was returning partial JSON (e.g. `{"tool": null}` or only `{"intent":"greeting"}`) for ambiguous requests like "hi". The `askAIJson` helper parsed this partial object successfully but returned it as-is, so `plan.tool` was `null`/`undefined` and the Prisma `agentActionLog.create()` threw "Argument `tool` is missing" (tool is a non-nullable String). The frontend then displayed the generic "Request failed. unknown 0% confidence Failed" message.
+- Root-caused by testing the SDK directly: `ZAI.create().chat.completions.create(...)` returns content wrapped in ```json fences AND frequently sets `tool: null` when the request doesn't cleanly map to a tool.
+- Fixed `src/lib/ai.ts` → `askAIJson`:
+  • Better fence stripping (handles ```json\n ... \n``` with newlines).
+  • DEEP-MERGE the parsed JSON over a clone of the fallback so every field declared in the fallback is guaranteed present. Any field the model set to `null` is dropped so the fallback value wins.
+- Fixed `src/app/api/ai/agent/route.ts` → added a normalization block after `askAIJson` that coerces every plan field to a valid type before hitting Prisma: `tool` must be one of the 8 known tools (else → `answer_question`); `confidence` clamped to [0,1] (else 0.3); `requiresApproval` coerced to boolean (else inferred from tool); `intent`/`reasoning`/`userFacingSummary` fall back to safe strings. Also strengthened the LLM prompt to require all fields.
+- Verified the fix with 4 direct API tests: "hi"→answered (greeting, 20% conf), "which parts are out of stock?"→executed (list_low_stock, 100%), "generate onboarding plan based on Robert's knowledge"→executed (generate_onboarding, 4 docs), "order 5 more thruster bearing housings"→awaiting_approval (create_order, requiresApproval=true). All 4 returned 200 with valid plans.
+- Audited the other AI routes: `/api/knowledge/ask-senior` (uses `askAI`, works — verified 1110-char answer citing KD-001/KD-007), `/api/inventory/smart-manage` (uses `askAIJson` + rule-based fallback — verified 7 decisions at 0.92 avg confidence when fresh=true), `/api/knowledge/onboarding` (works via agent), `/api/knowledge/documents` (10 docs), `/api/employees` (8 employees, 2 retiring). All healthy.
+- Connected all dashboards to each other:
+  • Wired `onNavigate={setActiveTab}` to AIAgentConsole, WorkforceKnowledgePage, SmartInventoryConsole, PartSuitabilityScannerPage, AutoPrintRulesPanel, AMFeasibilityPage in `src/app/page.tsx`.
+  • Added the `onNavigate?: (pageId: string) => void` prop signature to all 6 components (3 done by me for the smaller ones, 3 done by parallel subagents for the big consoles).
+  • Dispatched 3 parallel subagents (Tasks 7-A/7-B/7-C) that each added: (1) a "Connected Dashboards" cross-link bar at the top of the page with 5-6 related-dashboard link cards, and (2) contextual navigation buttons — AIAgentConsole got "JUMP TO" buttons on result cards (list_low_stock→smart_inventory, find_am_candidates→part_scanner+feasibility, etc.), WorkforceKnowledgePage got an "Open AI Operations Agent" handoff on Ask-a-Senior answers, SmartInventoryConsole got "Open Blueprint Library"/"Open Orders" on decision cards.
+- All 3 subagents reported lint exit 0.
+
+Verification (agent-browser end-to-end):
+- Lint clean (exit 0). No runtime errors in dev.log across the whole browser session.
+- Home page renders (qa-home.png).
+- AI Operations Agent page: "Connected Dashboards" bar renders with 6 link cards (Smart Inventory, Workforce Knowledge, AI Part Scanner, AM Feasibility, Physical Inventory, Audit Chain).
+- **AI "hi" test (the previously-failing case)**: typed "hi", clicked Send → POST /api/ai/agent returned 200, agent responded "Hello! I'm the AddManuChain Operations AI Agent. How can I help you today?" with Auto-executed status + 20% confidence. The "Request failed" error is GONE. (qa-ai-hi-response.png)
+- **Cross-navigation test 1**: clicked "Smart Inventory Console" link card on AI Agent page → navigated to Smart Inventory Console (verified H1 + Cameron Munro quote).
+- **Cross-navigation test 2**: on Smart Inventory, "Connected Dashboards" bar present with 6 cards → clicked "Workforce Knowledge" → navigated to Workforce Knowledge & Memory page (verified H1 + Jordan Cumming #10 quote + 4 tabs).
+- **Ask a Senior test**: filled "how do I inspect a thruster bearing for wear?", clicked Ask → 200 in 2.9s, returned a 1110-char grounded answer citing [KD-001] and [KD-007]. "Open AI Operations Agent" handoff button rendered.
+- **Contextual nav test**: back on AI Agent, sent "which parts are out of stock?" → Auto-executed list_low_stock, returned "2 out of stock, 7 below min stock" with a "JUMP TO" section containing an "Open Smart Inventory" button → clicked it → navigated to Smart Inventory Console. End-to-end cross-dashboard flow verified.
+- Audit feed on AI Agent page shows 14+ historical executions at varying confidence levels (20%–100%), all status:executed/answered — no failures.
+
+Stage Summary:
+- **AI reliability FIXED**: The "Request failed. unknown 0% confidence Failed" error is resolved. Root cause was the LLM returning null/partial JSON for ambiguous requests; fixed via deep-merge fallback in `askAIJson` + plan normalization in the agent route. All 6 AI route groups now return 200 for both clear and ambiguous inputs.
+- **All dashboards connected**: 6 components now accept `onNavigate`; 3 main consoles (AI Agent, Workforce Knowledge, Smart Inventory) have "Connected Dashboards" link bars + contextual result navigation buttons. A user can now flow: AI Agent → (result) → Smart Inventory → (link) → Workforce Knowledge → (Ask-a-Senior handoff) → AI Agent, etc. Every dashboard links to its siblings.
+- Artifacts: `src/lib/ai.ts` (askAIJson rewrite), `src/app/api/ai/agent/route.ts` (plan normalization), `src/app/page.tsx` (onNavigate wiring), 6 component prop-signature updates, 3 component cross-nav UIs. Lint exit 0. Browser-verified end-to-end.
+
+Current Goals / Completed:
+- ✅ All AI works (agent, ask-senior, onboarding, smart-manage, part-suitability — all return 200)
+- ✅ All dashboards connected (cross-navigation bars + contextual result buttons)
+- ✅ Lint passing (exit 0)
+- ✅ End-to-end browser verification (AI "hi" works, cross-nav works, no errors)
+
+Unresolved Issues / Risks (priority for next phase):
+- The Smart Inventory fresh AI analysis takes ~10s (LLM call). The UI shows a spinner. Could cache for 5 min or stream.
+- The AI Agent planning call can take 10-20s on cold LLM responses. Could add a streaming/timeout UX.
+- The Employee/knowledge models use JSON-in-String fields (SQLite limitation). On migration to PostgreSQL these could become proper array columns.
+- Next feature candidates: Certification Pathway Builder (#45 Saxty 7-step), Smart Manuals RAG over uploaded PDFs (#64 Dalpe), Field-Technician mobile assistant (#82 Kobalch), unified cross-dashboard activity feed widget on the Overview page.

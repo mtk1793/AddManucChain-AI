@@ -400,7 +400,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Planning path: ask the LLM to parse the request into a plan ────────
-    const plan = await askAIJson<AgentPlan>(
+    const rawPlan = await askAIJson<AgentPlan>(
       `You are the AddManuChain Operations AI Agent. You translate natural-language operations requests into a structured plan that the platform can either execute automatically or surface for human approval.
 
 You have these tools available:
@@ -425,6 +425,8 @@ Decision rules:
 Set requiresApproval = true for any WRITE tool (create_order, adjust_inventory, trigger_print). Set requiresApproval = false for read-only tools.
 Set confidence = 0.0–1.0 based on how clearly the request maps to a tool and how complete the parameters are.
 
+IMPORTANT: Always include ALL fields in the JSON: intent, tool, parameters, confidence, requiresApproval, reasoning, userFacingSummary. The tool field MUST be one of the 8 tool names above (never null). If the request is a greeting or unclear, use tool="answer_question" with a low confidence.
+
 Respond as JSON only.`,
       `User request: "${request}"
 
@@ -437,15 +439,60 @@ Available senior employees for generate_onboarding:
 - EMP-003: James O'Connor, Senior Field Service Technician (retiring)
 - EMP-004: Dr. Aisha Patel, Senior Materials Scientist`,
       {
-        intent: 'unknown',
+        intent: 'answer_question',
         tool: 'answer_question',
         parameters: {},
-        confidence: 0,
+        confidence: 0.3,
         requiresApproval: false,
         reasoning: 'Fallback plan — could not parse request.',
         userFacingSummary: 'I could not fully understand that request.',
       },
     )
+
+    // ── Normalize the plan so every field is valid before hitting Prisma ──
+    // The LLM occasionally returns null/missing/invalid values; coerce them.
+    const ALL_TOOLS = new Set([
+      'answer_question',
+      'list_low_stock',
+      'find_am_candidates',
+      'find_knowledge',
+      'generate_onboarding',
+      'create_order',
+      'adjust_inventory',
+      'trigger_print',
+    ])
+    const plan: AgentPlan = {
+      intent:
+        (typeof rawPlan.intent === 'string' && rawPlan.intent.trim()) ||
+        (typeof rawPlan.tool === 'string' && rawPlan.tool.trim()) ||
+        'answer_question',
+      tool:
+        typeof rawPlan.tool === 'string' && ALL_TOOLS.has(rawPlan.tool)
+          ? rawPlan.tool
+          : 'answer_question',
+      parameters:
+        rawPlan.parameters && typeof rawPlan.parameters === 'object'
+          ? rawPlan.parameters
+          : {},
+      confidence:
+        typeof rawPlan.confidence === 'number' && !Number.isNaN(rawPlan.confidence)
+          ? Math.max(0, Math.min(1, rawPlan.confidence))
+          : 0.3,
+      requiresApproval:
+        typeof rawPlan.requiresApproval === 'boolean'
+          ? rawPlan.requiresApproval
+          : ['create_order', 'adjust_inventory', 'trigger_print'].includes(
+              typeof rawPlan.tool === 'string' ? rawPlan.tool : '',
+            ),
+      reasoning:
+        (typeof rawPlan.reasoning === 'string' && rawPlan.reasoning) ||
+        (typeof rawPlan.userFacingSummary === 'string' && rawPlan.userFacingSummary) ||
+        'No reasoning provided.',
+      userFacingSummary:
+        (typeof rawPlan.userFacingSummary === 'string' && rawPlan.userFacingSummary) ||
+        (typeof rawPlan.reasoning === 'string' && rawPlan.reasoning) ||
+        'I will handle this request.',
+    }
 
     // ── Log the plan ────────────────────────────────────────────────────────
     const newActionId = genId('ACT')

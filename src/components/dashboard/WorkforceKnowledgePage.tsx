@@ -68,6 +68,11 @@ import {
   UserCheck,
   Quote,
   ArrowRight,
+  Bot,
+  Boxes,
+  Package,
+  KeyRound,
+  Link2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -1006,7 +1011,11 @@ function DocumentDialog({
 
 // ─── Main component ──────────────────────────────────────────────────────────
 
-export function WorkforceKnowledgePage() {
+export function WorkforceKnowledgePage({
+  onNavigate,
+}: {
+  onNavigate?: (pageId: string) => void
+} = {}) {
   const [tab, setTab] = useState('directory')
 
   // ─── Employees state (Tab 1) ───
@@ -1203,6 +1212,65 @@ export function WorkforceKnowledgePage() {
     'What powder reuse limits should I follow?',
   ]
 
+  // ─── Connected dashboards cross-link config ───
+  // Lets the user jump from Workforce Knowledge to related dashboards so all
+  // dashboards are connected to each other.
+  const connectedDashboards: {
+    id: string
+    label: string
+    description: string
+    icon: typeof Bot
+    iconWrap: string
+    iconColor: string
+    accentBorder: string
+  }[] = [
+    {
+      id: 'ai_agent',
+      label: 'AI Operations Agent',
+      description: 'Ask the AI to act',
+      icon: Bot,
+      iconWrap: 'bg-emerald-50',
+      iconColor: 'text-emerald-600',
+      accentBorder: 'hover:border-emerald-300',
+    },
+    {
+      id: 'smart_inventory',
+      label: 'Smart Inventory Console',
+      description: 'Manual or AI stock control',
+      icon: Boxes,
+      iconWrap: 'bg-amber-50',
+      iconColor: 'text-amber-600',
+      accentBorder: 'hover:border-amber-300',
+    },
+    {
+      id: 'audit',
+      label: 'Audit Chain',
+      description: 'Full system audit log',
+      icon: FileText,
+      iconWrap: 'bg-slate-100',
+      iconColor: 'text-slate-600',
+      accentBorder: 'hover:border-slate-400',
+    },
+    {
+      id: 'orders',
+      label: 'Orders',
+      description: 'Manufacturing orders',
+      icon: Package,
+      iconWrap: 'bg-teal-50',
+      iconColor: 'text-teal-600',
+      accentBorder: 'hover:border-teal-300',
+    },
+    {
+      id: 'print_queue',
+      label: 'Print Approval',
+      description: 'DRM / cert sign-offs',
+      icon: KeyRound,
+      iconWrap: 'bg-violet-50',
+      iconColor: 'text-violet-600',
+      accentBorder: 'hover:border-violet-300',
+    },
+  ]
+
   return (
     <TooltipProvider delayDuration={150}>
       <div className="p-4 sm:p-6 space-y-5 max-w-7xl mx-auto">
@@ -1255,6 +1323,52 @@ export function WorkforceKnowledgePage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* ─── Connected Dashboards cross-link bar ─── */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <Link2 className="w-4 h-4 text-violet-500" />
+            <h3 className="text-xs font-bold uppercase tracking-wide text-slate-600">
+              Connected Dashboards
+            </h3>
+            <span className="text-[11px] text-slate-400">
+              · jump to a related console
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {connectedDashboards.map((d) => {
+              const interactive = typeof onNavigate === 'function'
+              return (
+                <button
+                  key={d.id}
+                  type="button"
+                  onClick={() => onNavigate?.(d.id)}
+                  disabled={!interactive}
+                  aria-label={`Open ${d.label}`}
+                  className={`group flex items-start gap-2.5 w-[180px] p-3 border border-slate-200 bg-white rounded-lg text-left transition-all ${
+                    interactive
+                      ? `cursor-pointer hover:shadow-md ${d.accentBorder}`
+                      : 'opacity-50 cursor-not-allowed'
+                  }`}
+                >
+                  <span
+                    className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 ${d.iconWrap}`}
+                  >
+                    <d.icon className={`w-4 h-4 ${d.iconColor}`} />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-xs font-semibold text-slate-800 leading-tight">
+                      {d.label}
+                    </span>
+                    <span className="block text-[11px] text-slate-500 mt-0.5 leading-snug">
+                      {d.description}
+                    </span>
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
 
         {/* Tabs */}
         <Tabs value={tab} onValueChange={setTab}>
@@ -1637,6 +1751,25 @@ export function WorkforceKnowledgePage() {
                     <div className="text-sm text-slate-700 leading-relaxed space-y-1">
                       {renderAnswer(askResult.answer)}
                     </div>
+
+                    {/* Hand off to the AI Operations Agent for a follow-up action */}
+                    {onNavigate && askResult.citedDocs.length > 0 && (
+                      <div className="mt-4 pt-3 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center gap-2">
+                        <span className="text-[11px] text-slate-500">
+                          Need this acted on automatically?
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => onNavigate('ai_agent')}
+                          className="h-8 text-xs border-emerald-200 text-emerald-700 hover:bg-emerald-50 hover:border-emerald-300"
+                        >
+                          <Bot className="w-3.5 h-3.5 mr-1.5" />
+                          Open AI Operations Agent
+                          <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
+                        </Button>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
 

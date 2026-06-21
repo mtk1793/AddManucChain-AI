@@ -74,6 +74,12 @@ import {
   Quote,
   ShieldCheck,
   MapPin,
+  Bot,
+  FileBox,
+  Database,
+  GraduationCap,
+  Link2,
+  ArrowUpRight,
 } from 'lucide-react'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -437,6 +443,109 @@ function Header() {
           </div>
         </CardContent>
       </Card>
+    </div>
+  )
+}
+
+// ─── Connected Dashboards cross-link bar ─────────────────────────────────────
+
+const CONNECTED_DASHBOARDS: Array<{
+  pageId: string
+  label: string
+  description: string
+  icon: any
+  accent: string
+}> = [
+  {
+    pageId: 'ai_agent',
+    label: 'AI Operations Agent',
+    description: 'Ask the AI to act',
+    icon: Bot,
+    accent: 'bg-violet-50 text-violet-700',
+  },
+  {
+    pageId: 'ai_part_scanner',
+    label: 'AI Part Scanner',
+    description: 'Find AM candidates',
+    icon: Brain,
+    accent: 'bg-emerald-50 text-emerald-700',
+  },
+  {
+    pageId: 'feasibility',
+    label: 'AM Feasibility',
+    description: '30-second AM verdict',
+    icon: Zap,
+    accent: 'bg-amber-50 text-amber-700',
+  },
+  {
+    pageId: 'blueprints',
+    label: 'Blueprint Library',
+    description: 'Certified CAD files',
+    icon: FileBox,
+    accent: 'bg-sky-50 text-sky-700',
+  },
+  {
+    pageId: 'physical_inventory',
+    label: 'Physical Inventory',
+    description: 'All spare parts',
+    icon: Database,
+    accent: 'bg-slate-100 text-slate-700',
+  },
+  {
+    pageId: 'workforce_knowledge',
+    label: 'Workforce Knowledge',
+    description: 'Senior expert SOPs',
+    icon: GraduationCap,
+    accent: 'bg-rose-50 text-rose-700',
+  },
+]
+
+function ConnectedDashboardsBar({
+  onNavigate,
+}: {
+  onNavigate?: (pageId: string) => void
+}) {
+  const enabled = !!onNavigate
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
+        <Link2 className="h-4 w-4 text-emerald-600" />
+        Connected Dashboards
+        <span className="text-xs font-normal normal-case tracking-normal text-slate-400">
+          — jump to a related module
+        </span>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {CONNECTED_DASHBOARDS.map((d) => {
+          const Icon = d.icon
+          const interactive = enabled
+            ? 'cursor-pointer hover:shadow-md hover:border-emerald-300 hover:-translate-y-0.5'
+            : 'opacity-50 cursor-not-allowed'
+          return (
+            <button
+              key={d.pageId}
+              type="button"
+              disabled={!enabled}
+              onClick={() => onNavigate?.(d.pageId)}
+              className={`flex w-[180px] items-start gap-2 rounded-lg border border-slate-200 bg-white p-3 text-left transition-all ${interactive}`}
+            >
+              <span
+                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md ${d.accent}`}
+              >
+                <Icon className="h-4 w-4" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-xs font-semibold text-slate-900">
+                  {d.label}
+                </span>
+                <span className="block text-[11px] leading-tight text-slate-500">
+                  {d.description}
+                </span>
+              </span>
+            </button>
+          )
+        })}
+      </div>
     </div>
   )
 }
@@ -1053,6 +1162,7 @@ function AiPanel({
   executingId,
   onAutoAll,
   highConfCount,
+  onNavigate,
 }: {
   analysis: Analysis | null
   analyzing: boolean
@@ -1064,6 +1174,7 @@ function AiPanel({
   executingId: string | null
   onAutoAll: () => void
   highConfCount: number
+  onNavigate?: (pageId: string) => void
 }) {
   const suggestedEntries = auditLog.filter((a) => a.source === 'ai' && a.status === 'suggested')
 
@@ -1224,6 +1335,7 @@ function AiPanel({
                           onApprove={onApprove}
                           onReject={onReject}
                           executing={!!executingId && executingId === d.partId + d.action}
+                          onNavigate={onNavigate}
                         />
                       ))}
                     </AnimatePresence>
@@ -1243,11 +1355,13 @@ function DecisionCard({
   onApprove,
   onReject,
   executing,
+  onNavigate,
 }: {
   d: AiDecision
   onApprove: (d: AiDecision) => void
   onReject: (d: AiDecision) => void
   executing: boolean
+  onNavigate?: (pageId: string) => void
 }) {
   const m = ACTION_META[d.action] ?? ACTION_META.safety_stock_adjust
   const ActionIcon = m.icon
@@ -1337,6 +1451,37 @@ function DecisionCard({
           <X className="h-3.5 w-3.5" /> Reject
         </Button>
       </div>
+
+      {onNavigate &&
+        ((d.action === 'digitize_for_am' && d.targetFacilityName) ||
+          d.action === 'reorder') && (
+          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
+            {d.action === 'digitize_for_am' && d.targetFacilityName && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => onNavigate('blueprints')}
+                className="h-7 gap-1 px-2 text-xs text-violet-700 hover:bg-violet-50 hover:text-violet-800"
+              >
+                <FileBox className="h-3.5 w-3.5" />
+                Open Blueprint Library
+                <ArrowUpRight className="h-3 w-3" />
+              </Button>
+            )}
+            {d.action === 'reorder' && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => onNavigate('orders')}
+                className="h-7 gap-1 px-2 text-xs text-amber-700 hover:bg-amber-50 hover:text-amber-800"
+              >
+                <Package className="h-3.5 w-3.5" />
+                Open Orders
+                <ArrowUpRight className="h-3 w-3" />
+              </Button>
+            )}
+          </div>
+        )}
     </motion.div>
   )
 }
@@ -1627,7 +1772,11 @@ function AdjustDialog({
 
 // ─── Main component ──────────────────────────────────────────────────────────
 
-export function SmartInventoryConsole() {
+export function SmartInventoryConsole({
+  onNavigate,
+}: {
+  onNavigate?: (pageId: string) => void
+} = {}) {
   const [data, setData] = useState<ApiResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [analyzing, setAnalyzing] = useState(false)
@@ -1940,6 +2089,8 @@ export function SmartInventoryConsole() {
     <div className="space-y-6">
       <Header />
 
+      <ConnectedDashboardsBar onNavigate={onNavigate} />
+
       <KpiRow
         health={data?.stockHealth}
         loading={loading}
@@ -1972,6 +2123,7 @@ export function SmartInventoryConsole() {
           executingId={executingKey}
           onAutoAll={() => setAutoAllOpen(true)}
           highConfCount={highConfCount}
+          onNavigate={onNavigate}
         />
       )}
 

@@ -247,15 +247,15 @@ export default function Dashboard() {
       case 'emergency':
         return <EmergencyResponsePage role={currentRole} />
       case 'ai_agent':
-        return <AIAgentConsole />
+        return <AIAgentConsole onNavigate={setActiveTab} />
       case 'ai_part_scanner':
-        return <PartSuitabilityScannerPage />
+        return <PartSuitabilityScannerPage onNavigate={setActiveTab} />
       case 'ai_auto_print':
-        return <AutoPrintRulesPanel />
+        return <AutoPrintRulesPanel onNavigate={setActiveTab} />
       case 'workforce_knowledge':
-        return <WorkforceKnowledgePage />
+        return <WorkforceKnowledgePage onNavigate={setActiveTab} />
       case 'smart_inventory':
-        return <SmartInventoryConsole />
+        return <SmartInventoryConsole onNavigate={setActiveTab} />
       case 'oem_portal':
         return <OEMPortalPage role={currentRole} />
       case 'cooperative':
@@ -263,7 +263,7 @@ export default function Dashboard() {
       case 'material_properties':
         return <MaterialPropertiesPage role={currentRole} />
       case 'feasibility':
-        return <AMFeasibilityPage role={currentRole} />
+        return <AMFeasibilityPage role={currentRole} onNavigate={setActiveTab} />
       case 'sc_intelligence':
         return <SupplyChainIntelligencePage role={currentRole} />
       case 'reports':

@@ -57,7 +57,13 @@ function SubScore({ label, value, color }: { label: string; value: number; color
   )
 }
 
-export function AMFeasibilityPage({ role = 'admin' }: { role?: string }) {
+export function AMFeasibilityPage({
+  role = 'admin',
+  onNavigate,
+}: {
+  role?: string
+  onNavigate?: (pageId: string) => void
+}) {
   const [form, setForm] = useState({
     part: '', geometry: '', material: '', quantity: '', urgency: '', industry: '', function: '',
   })

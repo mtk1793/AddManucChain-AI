@@ -46,7 +46,11 @@ const STATUS_STYLES = {
   info_only: { label: 'Suggestion', color: '#64748B', Icon: Activity },
 }
 
-export function AutoPrintRulesPanel() {
+export function AutoPrintRulesPanel({
+  onNavigate,
+}: {
+  onNavigate?: (pageId: string) => void
+} = {}) {
   const [rules, setRules] = useState<AutoPrintRule[]>([])
   const [evalData, setEvalData] = useState<EvaluateResponse | null>(null)
   const [loadingRules, setLoadingRules] = useState(true)

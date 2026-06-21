@@ -58,7 +58,11 @@ const AXIS_META = [
   { key: 'ipStatus' as const, label: 'IP Status', icon: FileText, color: '#6366F1', desc: 'OEM / IP clearance path' },
 ]
 
-export function PartSuitabilityScannerPage() {
+export function PartSuitabilityScannerPage({
+  onNavigate,
+}: {
+  onNavigate?: (pageId: string) => void
+} = {}) {
   const [data, setData] = useState<SuitabilityResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [narrative, setNarrative] = useState<Narrative | null>(null)
