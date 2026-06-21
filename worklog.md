@@ -811,3 +811,27 @@ Unresolved Issues / Risks (priority for next phase):
 - The AI Agent planning call can take 10-20s on cold LLM responses. Could add a streaming/timeout UX.
 - The Employee/knowledge models use JSON-in-String fields (SQLite limitation). On migration to PostgreSQL these could become proper array columns.
 - Next feature candidates: Certification Pathway Builder (#45 Saxty 7-step), Smart Manuals RAG over uploaded PDFs (#64 Dalpe), Field-Technician mobile assistant (#82 Kobalch), unified cross-dashboard activity feed widget on the Overview page.
+
+---
+Task ID: 9
+Agent: main (Phase 6 — Complete Dashboard Guide Word Document)
+Task: Create a detailed Word document cataloging every option/page in the website with screenshots + explanations, followed by a deep-think analysis.
+
+Work Log:
+- Read the full nav-items.ts registry — identified all 46 dashboard pages across 8 sections (Pipeline, AI Intelligence, People & Knowledge, Resources, Partners & IP, Compliance, Intelligence, System).
+- Restarted the dev server (port 3000 had a stale next-server holding it from the previous session — killed PID 1083, restarted clean).
+- Captured 46 viewport screenshots via agent-browser using the Command Palette (Ctrl+K) navigation method (the sidebar was scrollable/collapsed for some sections, so the palette was the most reliable cross-page navigator). Built a /tmp/pal-shot.sh helper with a 3-try retry loop that opens the palette, fills the search term, clicks the first result, waits for networkidle, and screenshots. All 46 pages captured to /home/z/my-project/screenshots/ (sizes 77KB–247KB, all valid rendered content).
+- Wrote /home/z/my-project/build-doc.py — a python-docx script that builds the complete guide:
+  • Cover page (title, subtitle, tagline, footer).
+  • Manual Table of Contents grouped by the 8 sections with all 46 page titles.
+  • 46 page entries, each with: numbered Heading 2 title, section/page-ID meta line, centered screenshot (16cm width, aspect-ratio preserved via PIL), figure caption, "What this page does" 4-6 sentence detailed explanation, "Key features" bullet list (4-6 bullets per page).
+  • Deep-Think Analysis section (Heading 1) with 9 strategic-analysis sub-sections: Core Thesis, Architectural Strengths, AI Maturity Curve, Closed-Loop Learning Gap, People Risk > Tech Risk, Cooperative vs Commercial Tension, Mobile/Field Underserved, Next-Three-Features Recommendation, Final Verdict.
+  • Color palette: emerald/slate/amber (matches the app, no indigo/blue).
+- Verified the output: 738 paragraphs, 46 inline images, 46 numbered Heading-2 page entries, 9 Heading-2 analysis sections under 1 Heading-1. File is a valid Microsoft Word 2007+ .docx, 5.76 MB.
+- Delivered at /home/z/my-project/AddManuChain_Dashboard_Complete_Guide.docx.
+
+Stage Summary:
+- Single artifact: /home/z/my-project/AddManuChain_Dashboard_Complete_Guide.docx (5.76 MB, ~120 pages when rendered).
+- Covers all 46 dashboard pages with a real screenshot + a 4-6 sentence explanation + 4-6 key-feature bullets each.
+- 9-section deep-think analysis covering platform thesis, architecture, AI maturity, the closed-loop learning gap, people risk, cooperative/commercial tension, mobile gap, next-feature recommendations, and a final verdict.
+- 46 screenshots preserved in /home/z/my-project/screenshots/ for reuse.
