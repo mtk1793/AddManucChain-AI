@@ -279,8 +279,8 @@ export function MaterialsPage({ role = 'admin' }: { role?: string }) {
         </CardContent>
       </Card>
 
-      {/* Order Material — print_center only */}
-      {role === 'print_center' && (
+      {/* Order Material — admin, manager, print_center */}
+      {(role === 'print_center' || role === 'admin' || role === 'manager') && (
         <Card className="bg-white border-slate-200">
           <CardHeader className="flex flex-row items-center justify-between pb-3">
             <div className="flex items-center gap-3">
@@ -288,7 +288,7 @@ export function MaterialsPage({ role = 'admin' }: { role?: string }) {
                 <ShoppingCart className="w-5 h-5 text-teal-600" />
               </div>
               <div>
-                <CardTitle className="text-base font-semibold text-[#0F172A]">Order Materials</CardTitle>
+                <CardTitle className="text-base font-semibold text-[#0F172A]">Order Materials from Vendor</CardTitle>
                 <p className="text-xs text-slate-500 mt-0.5">Request resupply from certified material suppliers</p>
               </div>
             </div>
