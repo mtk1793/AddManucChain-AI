@@ -1300,7 +1300,7 @@ export function AIAgentConsole({
         const res = await fetch('/api/ai/agent', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ request: trimmed, autoExecute: false }),
+          body: JSON.stringify({ request: trimmed, autoExecute: true }),
         })
         const json = (await res.json()) as AgentResponse
         if (!res.ok) {

@@ -56,6 +56,10 @@ const SAFE_TOOLS = new Set([
   'generate_onboarding',
 ])
 
+const AUTO_EXECUTE_ORDER_TOOLS = new Set([
+  'create_order',
+])
+
 interface AgentPlan {
   intent: string
   tool: string
@@ -409,7 +413,7 @@ You have these tools available:
 - find_am_candidates  : find inventory parts that are low on stock AND have a certified blueprint (good AM candidates)
 - find_knowledge      : search the workforce knowledge base (SOPs, lessons learned, troubleshooting guides)
 - generate_onboarding : generate a 90-day onboarding plan for a new hire based on a senior employee's captured knowledge
-- create_order        : create a new manufacturing order (WRITE — requires approval)
+- create_order        : create a new manufacturing order (WRITE — auto-executes when autoExecute=true)
 - adjust_inventory    : adjust the on-hand quantity of a physical part (WRITE — requires approval)
 - trigger_print       : trigger a 3D print job for a part that has a blueprint (WRITE — requires approval)
 
@@ -422,7 +426,7 @@ Decision rules:
 - For find_knowledge: parameters = { query }
 - For generate_onboarding: parameters = { seniorEmployeeId } — use EMP-001..EMP-004 for seniors.
 
-Set requiresApproval = true for any WRITE tool (create_order, adjust_inventory, trigger_print). Set requiresApproval = false for read-only tools.
+Set requiresApproval = true for create_order, adjust_inventory, trigger_print when autoExecute is NOT set. When autoExecute=true, set requiresApproval = false for create_order to enable instant order placement. Set requiresApproval = false for read-only tools.
 Set confidence = 0.0–1.0 based on how clearly the request maps to a tool and how complete the parameters are.
 
 IMPORTANT: Always include ALL fields in the JSON: intent, tool, parameters, confidence, requiresApproval, reasoning, userFacingSummary. The tool field MUST be one of the 8 tool names above (never null). If the request is a greeting or unclear, use tool="answer_question" with a low confidence.
@@ -481,6 +485,8 @@ Available senior employees for generate_onboarding:
       requiresApproval:
         typeof rawPlan.requiresApproval === 'boolean'
           ? rawPlan.requiresApproval
+          : autoExecute === true && rawPlan.tool === 'create_order'
+          ? false
           : ['create_order', 'adjust_inventory', 'trigger_print'].includes(
               typeof rawPlan.tool === 'string' ? rawPlan.tool : '',
             ),
@@ -497,7 +503,8 @@ Available senior employees for generate_onboarding:
     // ── Log the plan ────────────────────────────────────────────────────────
     const newActionId = genId('ACT')
     const isSafe = SAFE_TOOLS.has(plan.tool)
-    const shouldAutoExecute = isSafe || (autoExecute === true && !plan.requiresApproval)
+    const isAutoOrder = AUTO_EXECUTE_ORDER_TOOLS.has(plan.tool)
+    const shouldAutoExecute = isSafe || (autoExecute === true && (isAutoOrder || !plan.requiresApproval))
 
     // Defensive defaults — the LLM occasionally omits intent/reasoning from its
     // JSON. The AgentActionLog schema requires `intent` (non-nullable String),
@@ -539,6 +546,9 @@ Available senior employees for generate_onboarding:
             break
           case 'generate_onboarding':
             result = await generateOnboarding(plan.parameters.seniorEmployeeId ?? 'EMP-001')
+            break
+          case 'create_order':
+            result = await createOrder(plan.parameters)
             break
           case 'answer_question':
           default: {
