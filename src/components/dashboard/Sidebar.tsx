@@ -24,7 +24,6 @@ import {
   X,
   BookMarked,
   FlaskConical,
-  ChevronsUpDown,
   Zap,
   Database,
   Globe,
@@ -64,6 +63,14 @@ const demoPersonas = [
     initials: 'JW',
     color: '#8B5CF6',
     badge: 'OEM Partner',
+  },
+  {
+    role: 'operator',
+    name: 'Rig Operator',
+    org: 'Statoil — Operations',
+    initials: 'RO',
+    color: '#38BDF8',
+    badge: 'Operator',
   },
   {
     role: 'end_user',
@@ -127,6 +134,17 @@ const rolePermissions: Record<string, string[]> = {
     'reports', 'notifications', 'search', 'batch', 'forecasts',
     'monitoring', 'integrations', 'automation', 'users', 'api', 'dashboards',
     'advanced_analytics', 'workflow_builder', 'mobile_dashboard',
+    'settings',
+  ],
+  operator: [
+    'overview', 'orders', 'emergency',
+    'ai_agent', 'smart_inventory',
+    'peer_printers', 'shipments', 'physical_inventory', 'digital_inventory', 'cooperative',
+    'material_properties', 'my_printers', 'lab_portal', 'materials',
+    'services', 'feasibility', 'sc_intelligence',
+    'reports', 'notifications', 'search', 'batch', 'forecasts',
+    'monitoring', 'dashboards',
+    'advanced_analytics', 'workflow_builder', 'mobile_dashboard', 'one-click-ordering',
     'settings',
   ],
   // Customers / operators
@@ -384,14 +402,10 @@ interface SidebarProps {
 
 export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileClose, collapsed = false, onCollapsedChange, activeRole, onRoleChange }: SidebarProps) {
   const setCollapsed = (val: boolean) => onCollapsedChange?.(val)
-  // Use activeRole as default to prevent hydration mismatch
-  const [internalRole, setInternalRole] = useState(activeRole ?? 'admin')
-  const demoRole = activeRole ?? internalRole
-  const [showRolePicker, setShowRolePicker] = useState(false)
-  
+  const demoRole = activeRole ?? 'admin'
   // Select menu based on role - support 5 personas
   let menuSections = baseMenuSections
-  if (demoRole === 'end_user') menuSections = endUserMenuSections
+  if (demoRole === 'end_user' || demoRole === 'operator') menuSections = endUserMenuSections
   else if (demoRole === 'oem_partner') menuSections = oemPartnerMenuSections
   else if (demoRole === 'lab') menuSections = labTestingMenuSections
   else if (demoRole === 'cert_authority') menuSections = certAuthorityMenuSections
@@ -405,14 +419,7 @@ export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileClose, col
     setOpenSections(prev => ({ ...prev, [title]: !prev[title] }))
 
   const allowed = rolePermissions[demoRole] ?? rolePermissions.admin
-  const currentPersona = demoPersonas.find(p => p.role === demoRole)!
-
-  const handleRoleSwitch = (role: string) => {
-    setInternalRole(role)
-    onRoleChange?.(role)
-    setShowRolePicker(false)
-    onTabChange('overview')
-  }
+  const currentPersona = demoPersonas.find(p => p.role === demoRole) ?? demoPersonas[0]
 
   return (
     <>
@@ -482,10 +489,11 @@ export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileClose, col
         {!collapsed && (
           <div className="px-4 py-2 border-b border-slate-800/50">
             <span
+              suppressHydrationWarning
               className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-semibold text-white"
               style={{ backgroundColor: `${currentPersona.color}30`, color: currentPersona.color }}
             >
-              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: currentPersona.color }} />
+              <span suppressHydrationWarning className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: currentPersona.color }} />
               {currentPersona.badge}
             </span>
           </div>
@@ -558,65 +566,8 @@ export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileClose, col
           })}
         </nav>
 
-        {/* User / Role Switcher */}
-        <div className="border-t border-slate-800 p-3 flex-shrink-0 relative">
-          {/* Role picker flyout */}
-          {showRolePicker && !collapsed && (
-            <div className="absolute bottom-full left-3 right-3 mb-2 bg-[#0F172A] border border-slate-700 rounded-xl shadow-2xl overflow-hidden z-50">
-              <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider px-3 pt-3 pb-1.5">
-                Switch Demo View
-              </p>
-              {demoPersonas.map(persona => (
-                <button
-                  key={persona.role}
-                  onClick={() => handleRoleSwitch(persona.role)}
-                  className={cn(
-                    'w-full flex items-center gap-3 px-3 py-2.5 hover:bg-slate-800 transition-colors text-left',
-                    demoRole === persona.role && 'bg-slate-800/70'
-                  )}
-                >
-                  <div
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
-                    style={{ backgroundColor: persona.color }}
-                  >
-                    {persona.initials}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-white truncate">{persona.name}</p>
-                    <p className="text-[10px] text-slate-400 truncate">{persona.badge}</p>
-                  </div>
-                  {demoRole === persona.role && (
-                    <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: persona.color }} />
-                  )}
-                </button>
-              ))}
-            </div>
-          )}
-
-          <button
-            onClick={() => setShowRolePicker(v => !v)}
-            className={cn(
-              'w-full flex items-center gap-3 px-3 py-2 rounded-lg bg-slate-800/50 hover:bg-slate-800 transition-colors',
-              collapsed && 'justify-center'
-            )}
-          >
-            <div
-              className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
-              style={{ backgroundColor: currentPersona.color }}
-            >
-              {currentPersona.initials}
-            </div>
-            {!collapsed && (
-              <>
-                <div className="flex-1 min-w-0 text-left">
-                  <p className="text-sm font-medium text-white truncate">{currentPersona.name}</p>
-                  <p className="text-xs text-slate-400 truncate">{currentPersona.org}</p>
-                </div>
-                <ChevronsUpDown className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
-              </>
-            )}
-          </button>
-        </div>
+        {/* Spacer */}
+        <div className="border-t border-slate-800 p-3 flex-shrink-0" />
       </aside>
     </>
   )

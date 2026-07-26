@@ -9,9 +9,11 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
 const DEMO_ACCOUNTS = [
-  { role: 'Platform Admin', email: 'admin@almatech.com', password: 'admin123', color: 'bg-violet-500' },
-  { role: 'Operator', email: 'operator@statoil.com', password: 'operator123', color: 'bg-sky-500' },
-  { role: 'OEM Partner', email: 'partner@oem.com', password: 'partner123', color: 'bg-teal-500' },
+  { role: 'Platform Admin', email: process.env.NEXT_PUBLIC_DEMO_ADMIN_EMAIL || 'admin@almatech.com', password: process.env.NEXT_PUBLIC_DEMO_ADMIN_PASSWORD || 'admin123', color: 'bg-violet-500', url: '/dash/admin' },
+  { role: 'Operator', email: process.env.NEXT_PUBLIC_DEMO_OPERATOR_EMAIL || 'operator@statoil.com', password: process.env.NEXT_PUBLIC_DEMO_OPERATOR_PASSWORD || 'operator123', color: 'bg-sky-500', url: '/dash/operator' },
+  { role: 'OEM Partner', email: process.env.NEXT_PUBLIC_DEMO_PARTNER_EMAIL || 'partner@oem.com', password: process.env.NEXT_PUBLIC_DEMO_PARTNER_PASSWORD || 'partner123', color: 'bg-teal-500', url: '/dash/partner' },
+  { role: 'Cert Authority', email: 'cert@authority.com', password: 'cert123', color: 'bg-amber-500', url: '/dash/cert' },
+  { role: 'Print Center', email: 'print@center.com', password: 'print123', color: 'bg-rose-500', url: '/dash/center' },
 ]
 
 export default function LoginPage() {
@@ -147,16 +149,14 @@ export default function LoginPage() {
                     <div className={`w-2 h-2 rounded-full ${acc.color} flex-shrink-0`} />
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-semibold text-slate-300 group-hover:text-white transition-colors">{acc.role}</p>
-                      <p className="text-xs text-slate-500 truncate">{acc.email}</p>
+                      <p className="text-[11px] text-slate-500">Email: {acc.email}</p>
+                      <p className="text-[11px] text-slate-500">Pass: {acc.password}</p>
                     </div>
                     <span className="text-xs text-slate-600 group-hover:text-slate-400 transition-colors flex-shrink-0">
-                      Use →
+                      Fill →
                     </span>
                   </button>
                 ))}
-                <p className="text-xs text-slate-600 text-center mt-1">
-                  Click an account to auto-fill credentials
-                </p>
               </div>
             )}
           </div>

@@ -1,6 +1,4 @@
-import { PrismaClient } from '@prisma/client'
-
-const prisma = new PrismaClient()
+import { prisma } from '@/lib/prisma'
 
 // ── Workflow Integration ──────────────────────────────────────
 export async function getWorkflows(userId?: string) {
@@ -126,7 +124,8 @@ export async function createApiKey(data: {
 }) {
   try {
     // Generate a random API key
-    const key = `amk_${Math.random().toString(36).substring(2)}${Date.now().toString(36)}`
+    const { randomUUID } = await import('node:crypto')
+    const key = `amk_${randomUUID().replace(/-/g, '')}`
     
     const apiKey = await prisma.apiKey.create({
       data: {

@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
 
     // Trigger workflow execution with AI
     if (action === 'execute_workflow') {
-      const executionId = `exec-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+      const executionId = `exec-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`
 
       const result = await executeWorkflowWithAI({
         workflowId,

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useParams } from 'next/navigation'
 import {
   Sidebar,
   Header,
@@ -59,11 +60,21 @@ import {
 } from '@/components/dashboard'
 import OneClickOrderAutomation from '@/components/OneClickOrderAutomation'
 
+const URL_TO_ROLE: Record<string, string> = {
+  admin: 'admin',
+  operator: 'operator',
+  partner: 'oem_partner',
+  cert: 'cert_authority',
+  center: 'print_center',
+}
+
 export function DashboardShell() {
+  const params = useParams()
+  const urlRole = (params?.role as string) || 'admin'
   const [activeTab, setActiveTab] = useState('overview')
   const [mobileOpen, setMobileOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
-  const [currentRole, setCurrentRole] = useState('admin')
+  const [currentRole, setCurrentRole] = useState(URL_TO_ROLE[urlRole] || 'admin')
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
   const { showOnboarding, isLoading, completeOnboarding } = useOnboarding()
   const { tutorialSection, showTutorial, hideTutorial, isVisible: tutorialVisible } = useSectionTutorial(activeTab)
@@ -336,6 +347,7 @@ export function DashboardShell() {
           onCommandPaletteTrigger={() => setCommandPaletteOpen(true)}
           mobileOpen={mobileOpen}
           setMobileOpen={setMobileOpen}
+          currentRole={currentRole}
         />
 
         <main className="min-h-[calc(100vh-64px)]">{renderPage()}</main>

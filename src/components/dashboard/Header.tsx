@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Search, Plus, User, Settings, ChevronDown, X, Menu, HelpCircle, Command } from 'lucide-react'
+import { Search, Plus, User, Settings, ChevronDown, X, Menu, HelpCircle, Command, LayoutDashboard } from 'lucide-react'
 // Authentication removed - no longer importing useSession, signOut
 // import { useSession, signOut } from 'next-auth/react'
 import {
@@ -35,11 +35,13 @@ interface HeaderProps {
   onCommandPaletteTrigger?: () => void
   mobileOpen?: boolean
   setMobileOpen?: (open: boolean) => void
+  currentRole?: string
 }
 
 const getRoleBadgeColor = (role: string) => {
   switch (role) {
     case 'admin': return 'bg-purple-100 text-purple-700'
+    case 'operator': return 'bg-sky-100 text-sky-700'
     case 'customer_admin': return 'bg-blue-100 text-blue-700'
     case 'oem_partner': return 'bg-green-100 text-green-700'
     case 'print_center': return 'bg-orange-100 text-orange-700'
@@ -82,13 +84,20 @@ function buildSearchIndex() {
 
 const searchIndex = buildSearchIndex()
 
-export function Header({ title, subtitle, action, onNavigate, onTutorialClick, onCommandPaletteTrigger, mobileOpen, setMobileOpen }: HeaderProps) {
-  // Static user data since authentication is removed
+const DASH_LINKS = [
+  { role: 'admin', label: 'Admin', url: '/dash/admin', color: 'bg-violet-500' },
+  { role: 'operator', label: 'Operator', url: '/dash/operator', color: 'bg-sky-500' },
+  { role: 'partner', label: 'Partner', url: '/dash/partner', color: 'bg-teal-500' },
+  { role: 'cert', label: 'Cert Auth', url: '/dash/cert', color: 'bg-amber-500' },
+  { role: 'center', label: 'Print Ctr', url: '/dash/center', color: 'bg-rose-500' },
+]
+
+export function Header({ title, subtitle, action, onNavigate, onTutorialClick, onCommandPaletteTrigger, mobileOpen, setMobileOpen, currentRole = 'admin' }: HeaderProps) {
   const staticUser = {
-    name: 'John Anderson',
-    email: 'john@addmanuchain.com',
+    name: 'Platform User',
+    email: 'user@addmanuchain.com',
     company: 'AddManuChain',
-    role: 'admin',
+    role: currentRole,
     image: null
   }
   
@@ -255,6 +264,26 @@ export function Header({ title, subtitle, action, onNavigate, onTutorialClick, o
                 {/* Log out functionality removed since authentication is disabled */}
               </DropdownMenuContent>
             </DropdownMenu>
+        </div>
+
+        {/* Inter-dashboard navigation bar */}
+        <div className="flex items-center gap-1 px-6 py-1.5 bg-slate-100/50 border-t border-slate-200 overflow-x-auto">
+          <LayoutDashboard className="w-3.5 h-3.5 text-slate-400 flex-shrink-0 mr-1" />
+          <span className="text-[11px] text-slate-500 font-medium flex-shrink-0 mr-2">Dashboards:</span>
+          {DASH_LINKS.map((d) => (
+            <a
+              key={d.role}
+              href={d.url}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors whitespace-nowrap flex-shrink-0 ${
+                currentRole === d.role
+                  ? 'bg-white text-slate-800 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700 hover:bg-white/60'
+              }`}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${d.color}`} />
+              {d.label}
+            </a>
+          ))}
         </div>
       </div>
     </header>

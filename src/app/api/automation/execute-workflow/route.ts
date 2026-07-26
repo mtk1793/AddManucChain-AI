@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const executionId = `exec-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    const executionId = `exec-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`
 
     // Execute workflow with AI
     const result = await executeWorkflowWithAI({

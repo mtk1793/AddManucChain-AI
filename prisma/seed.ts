@@ -10,6 +10,8 @@ async function main() {
   const adminPassword = await bcrypt.hash('admin123', 10)
   const operatorPassword = await bcrypt.hash('operator123', 10)
   const partnerPassword = await bcrypt.hash('partner123', 10)
+  const certPassword = await bcrypt.hash('cert123', 10)
+  const printPassword = await bcrypt.hash('print123', 10)
 
   // ==================== USERS (with authentication) ====================
   const users = await Promise.all([
@@ -98,6 +100,28 @@ async function main() {
         name: 'Lisa Wang',
         role: 'procurement',
         company: 'Thales Canada',
+      },
+    }),
+    prisma.user.upsert({
+      where: { email: 'cert@authority.com' },
+      update: {},
+      create: {
+        email: 'cert@authority.com',
+        name: 'Dr. Priya Patel',
+        role: 'cert_authority',
+        company: 'DNV',
+        password: certPassword,
+      },
+    }),
+    prisma.user.upsert({
+      where: { email: 'print@center.com' },
+      update: {},
+      create: {
+        email: 'print@center.com',
+        name: 'Michael Okafor',
+        role: 'print_center',
+        company: 'PolyUnity NL',
+        password: printPassword,
       },
     }),
   ])

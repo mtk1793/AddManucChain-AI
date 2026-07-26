@@ -62,16 +62,23 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Generate order ID
-    const lastOrder = await db.order.findFirst({
-      orderBy: { createdAt: 'desc' },
-    })
-    const orderNum = lastOrder ? parseInt(lastOrder.orderId.split('-')[1]) + 1 : 2848
-    const orderId = `ORD-${orderNum}`
+    // Generate unique order ID
+    const orderId = `ORD-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 
     // Calculate ETA (3-5 days from now)
     const eta = new Date()
     eta.setDate(eta.getDate() + 4)
+
+    let validBlueprintId: string | null = null
+    if (blueprintId) {
+      const bp = await db.blueprint.findUnique({ where: { id: blueprintId } })
+      if (bp) validBlueprintId = bp.id
+    }
+    let validCenterId: string | null = null
+    if (centerId) {
+      const ct = await db.printCenter.findUnique({ where: { id: centerId } })
+      if (ct) validCenterId = ct.id
+    }
 
     const order = await db.order.create({
       data: {
@@ -83,8 +90,8 @@ export async function POST(request: NextRequest) {
         notes,
         eta,
         requesterId: user.id,
-        blueprintId: blueprintId || null,
-        centerId: centerId || null,
+        blueprintId: validBlueprintId,
+        centerId: validCenterId,
       },
       include: {
         requester: true,

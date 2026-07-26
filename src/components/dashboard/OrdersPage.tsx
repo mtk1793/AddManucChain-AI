@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -374,6 +374,36 @@ const ROLE_CONTEXT = {
 
 export function OrdersPage({ role = 'admin', onNavigate }: { role?: string; onNavigate?: (tab: string) => void }) {
   const [orders, setOrders] = useState<Order[]>(initialOrders)
+  const [loaded, setLoaded] = useState(false)
+
+  useEffect(() => {
+    if (loaded) return
+    fetch('/api/orders')
+      .then(r => r.json())
+      .then((data: { id: string; orderId: string; partName: string; status: string; priority: string; quantity: number; eta?: string; requesterId?: string; blueprintId?: string; centerId?: string; notes?: string; createdAt?: string }[]) => {
+        if (data && data.length > 0) {
+          setOrders(data.map(o => ({
+            id: o.id,
+            orderId: o.orderId || `ORD-${String(Math.floor(Math.random() * 9000) + 1000)}`,
+            partName: o.partName,
+            status: o.status,
+            priority: o.priority || 'medium',
+            quantity: o.quantity || 1,
+            eta: o.eta || new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
+            requesterId: o.requesterId || 'user-1',
+            blueprintId: o.blueprintId || null,
+            centerId: o.centerId || null,
+            notes: o.notes || null,
+            createdAt: o.createdAt || new Date().toISOString(),
+            oemApproval: { approved: false, approvedAt: null, approvedBy: null },
+            certApproval: { approved: false, approvedAt: null, approvedBy: null },
+            printAuthToken: null,
+          })))
+        }
+        setLoaded(true)
+      })
+      .catch(() => setLoaded(true))
+  }, [loaded])
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [priorityFilter, setPriorityFilter] = useState('all')
@@ -449,12 +479,12 @@ export function OrdersPage({ role = 'admin', onNavigate }: { role?: string; onNa
     !['printing', 'quality_check', 'shipped', 'delivered'].includes(o.status)
   ).length
 
-  const handleCreateOrder = () => {
+  const handleCreateOrder = async () => {
     if (!formData.partName) {
       toast.error('Part name is required')
       return
     }
-    const newOrderNum = Math.max(...orders.map(o => parseInt(o.orderId.split('-')[1]))) + 1
+    const newOrderNum = Math.max(...orders.map(o => parseInt(o.orderId.split('-')[1]) || 0)) + 1
     const newOrder: Order = {
       id: `ord-${Date.now()}`,
       orderId: `ORD-${newOrderNum}`,
@@ -473,15 +503,29 @@ export function OrdersPage({ role = 'admin', onNavigate }: { role?: string; onNa
       printAuthToken: null,
     }
     setOrders([newOrder, ...orders])
-    toast.success(`Order ${newOrder.orderId} created — awaiting DRM approvals`)
     setIsCreateOpen(false)
     setFormData({ partName: '', status: 'pending', priority: 'medium', quantity: 1, notes: '', blueprintId: '', centerId: '', printerType: '', onsitePrinterId: '', material: '' })
+    toast.success(`Order ${newOrder.orderId} created — awaiting DRM approvals`)
+
+    fetch('/api/orders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        partName: formData.partName,
+        quantity: formData.quantity,
+        priority: formData.priority,
+        notes: formData.notes || undefined,
+        blueprintId: formData.blueprintId || undefined,
+        centerId: formData.centerId || undefined,
+      }),
+    }).catch(() => {})
   }
 
   const handleDeleteOrder = (orderId: string) => {
     if (!confirm('Are you sure you want to delete this order?')) return
     setOrders(orders.filter(o => o.id !== orderId))
     toast.success('Order deleted')
+    fetch(`/api/orders/${orderId}`, { method: 'DELETE' }).catch(() => {})
   }
 
   const handleSecurePrint = (order: Order) => {
@@ -511,6 +555,15 @@ export function OrdersPage({ role = 'admin', onNavigate }: { role?: string; onNa
     setOrders(orders.map(o => o.id === selectedOrder.id ? selectedOrder : o))
     toast.success(`Order ${selectedOrder.orderId} updated`)
     setIsEditOpen(false)
+    fetch(`/api/orders/${selectedOrder.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        status: selectedOrder.status,
+        priority: selectedOrder.priority,
+        notes: selectedOrder.notes,
+      }),
+    }).catch(() => {})
   }
 
   const handleSubmitLabTestRequest = () => {

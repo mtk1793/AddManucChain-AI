@@ -13,9 +13,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { User, Building, Bell, Shield, CreditCard, Globe, HelpCircle, RotateCcw } from 'lucide-react'
+import { User, Building, Bell, Shield, CreditCard, Globe, HelpCircle, RotateCcw, LogOut } from 'lucide-react'
 import { toast } from 'sonner'
 import { clearAllSectionTutorials } from './SectionTutorial'
+import { signOut } from 'next-auth/react'
 
 export function SettingsPage({ role = 'admin' }: { role?: string }) {
   const handleRestartTutorial = () => {
@@ -324,6 +325,30 @@ export function SettingsPage({ role = 'admin' }: { role?: string }) {
             </div>
             <Button variant="outline">Contact Us</Button>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Logout */}
+      <Card className="bg-white border-red-200">
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-red-500/10 flex items-center justify-center">
+              <LogOut className="w-5 h-5 text-red-500" />
+            </div>
+            <div>
+              <CardTitle className="text-lg font-semibold text-red-600">Sign Out</CardTitle>
+              <CardDescription>Log out of your account and return to the login page</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <Button
+            onClick={() => signOut({ callbackUrl: '/login' })}
+            className="w-full bg-red-500 hover:bg-red-600 text-white"
+          >
+            <LogOut className="w-4 h-4 mr-2" />
+            Sign Out
+          </Button>
         </CardContent>
       </Card>
     </div>

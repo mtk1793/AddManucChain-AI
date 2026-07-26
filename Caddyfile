@@ -1,9 +1,7 @@
 :81 {
-	@transform_port_query {
-		query XTransformPort=*
-	}
+	@allowed_transform_port expression {query.XTransformPort}.port() in [3001, 3002, 3003, 3004, 3005]
 
-	handle @transform_port_query {
+	handle @allowed_transform_port {
 		reverse_proxy localhost:{query.XTransformPort} {
 			header_up Host {host}
 			header_up X-Forwarded-For {remote_host}
@@ -21,3 +19,14 @@
 		}
 	}
 }
+
+# Production: enable HTTPS with your domain
+# yourdomain.com {
+#     @allowed_transform_port expression {query.XTransformPort}.port() in [3001, 3002, 3003, 3004, 3005]
+#     handle @allowed_transform_port {
+#         reverse_proxy localhost:{query.XTransformPort} { ... }
+#     }
+#     handle {
+#         reverse_proxy localhost:3000 { ... }
+#     }
+# }

@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
   const { event, channel = 'global', visibility = 'all', data } = body
 
   const newEvent = {
-    id: `evt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    id: `evt_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`,
     event,
     channel,
     visibility,
