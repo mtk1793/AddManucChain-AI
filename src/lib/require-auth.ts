@@ -1,8 +1,9 @@
 import { getServerSession } from 'next-auth/next'
 import { NextResponse } from 'next/server'
 import { authOptions } from '@/lib/auth'
+import type { Session } from 'next-auth'
 
-const DEV_FALLBACK_SESSION = {
+const DEV_FALLBACK_SESSION: Session = {
   user: {
     id: 'dev-admin',
     email: 'admin@almatech.com',
@@ -12,9 +13,11 @@ const DEV_FALLBACK_SESSION = {
     image: null as string | null,
   },
   expires: new Date(Date.now() + 1000 * 60 * 60 * 24).toISOString(),
-} as const
+}
 
-export async function requireAuth() {
+type AuthResult = { session: Session | null; error: NextResponse | null }
+
+export async function requireAuth(): Promise<AuthResult> {
   const session = await getServerSession(authOptions)
   if (session?.user) {
     return { session, error: null }
@@ -24,7 +27,7 @@ export async function requireAuth() {
     process.env.NODE_ENV !== 'production' &&
     process.env.ALLOW_DEV_AUTH_BYPASS === 'true'
   ) {
-    return { session: DEV_FALLBACK_SESSION as unknown as Awaited<ReturnType<typeof getServerSession>>, error: null }
+    return { session: DEV_FALLBACK_SESSION, error: null }
   }
 
   return {

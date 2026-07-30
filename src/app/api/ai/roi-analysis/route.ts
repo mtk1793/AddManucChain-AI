@@ -217,8 +217,8 @@ Write a 3-sentence executive summary (reference the 1-2% / 98% framing if releva
       recommendation,
       narrative: {
         summary: narrative.summary ?? '',
-        keyAssumptions: narrative.keyAssumptions ?? [],
-        riskFactors: narrative.riskFactors ?? [],
+        keyAssumptions: Array.isArray(narrative.keyAssumptions) ? narrative.keyAssumptions : (narrative.keyAssumptions ? [narrative.keyAssumptions as string] : []),
+        riskFactors: Array.isArray(narrative.riskFactors) ? narrative.riskFactors : (narrative.riskFactors ? [narrative.riskFactors as string] : []),
       },
     }
 

@@ -198,6 +198,36 @@ export type Order = {
   printAuthToken: string | null
 }
 
+export function getStatusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    pending: 'Pending',
+    oem_approved: 'OEM Approved',
+    cert_approved: 'Cert Approved',
+    printing: 'Printing',
+    completed: 'Completed',
+    archived: 'Archived',
+    quality_check: 'Quality Check',
+    shipped: 'Shipped',
+    delivered: 'Delivered',
+  }
+  return labels[status] || status
+}
+
+export function getStatusColor(status: string): string {
+  const colors: Record<string, string> = {
+    pending: 'bg-slate-100 text-slate-600',
+    oem_approved: 'bg-purple-100 text-purple-700',
+    cert_approved: 'bg-emerald-100 text-emerald-700',
+    printing: 'bg-[#0EA5E9]/10 text-[#0EA5E9]',
+    completed: 'bg-green-100 text-green-600',
+    archived: 'bg-slate-200 text-slate-400',
+    quality_check: 'bg-[#F59E0B]/10 text-[#F59E0B]',
+    shipped: 'bg-[#14B8A6]/10 text-[#14B8A6]',
+    delivered: 'bg-green-100 text-green-600',
+  }
+  return colors[status] || 'bg-slate-100 text-slate-600'
+}
+
 // ── Financial helper ─────────────────────────────────────────────────────────
 // Derives a deterministic price from the order so no schema change is needed.
 // Model: customer pays orderValue → 75% print centre · 15% OEM royalty · 10% platform fee

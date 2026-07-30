@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -304,9 +304,25 @@ function ApprovalCard({ order, type, onApprove, onDeny, riskLevel }: ApprovalCar
     )
 }
 
+const ORDERS_KEY = 'addmanuchain-orders'
+
 export function PrintApprovalPage({ role = 'admin' }: { role?: string }) {
-    const [orders, setOrders] = useState(initialOrders)
+    const [orders, setOrders] = useState<Order[]>(initialOrders)
+    const [hydrated, setHydrated] = useState(false)
     const [viewOrder, setViewOrder] = useState<Order | null>(null)
+
+    useEffect(() => {
+        try {
+            const saved = localStorage.getItem(ORDERS_KEY)
+            if (saved) setOrders(JSON.parse(saved))
+        } catch {}
+        setHydrated(true)
+    }, [])
+
+    useEffect(() => {
+        if (hydrated) localStorage.setItem(ORDERS_KEY, JSON.stringify(orders))
+    }, [orders, hydrated])
+
     const [approvingOrder, setApprovingOrder] = useState<{ id: string; type: 'oem' | 'cert'; denyReason?: string } | null>(null)
     const [isConfirmOpen, setIsConfirmOpen] = useState(false)
     const [isDenyOpen, setIsDenyOpen] = useState(false)
@@ -376,13 +392,15 @@ export function PrintApprovalPage({ role = 'admin' }: { role?: string }) {
         if (!approvingOrder) return
         const { id, type } = approvingOrder
         const now = new Date().toISOString()
+        const step = type === 'oem' ? 'oem' : 'cert'
+        const approverName = type === 'oem' ? 'OEM Partner (Baker Hughes)' : "Cert Authority (Lloyd's Register)"
 
         setOrders(prev => prev.map(o => {
             if (o.id !== id) return o
             if (type === 'oem') {
-                return { ...o, oemApproval: { approved: true, approvedAt: now, approvedBy: 'OEM Partner (Baker Hughes)' } }
+                return { ...o, oemApproval: { approved: true, approvedAt: now, approvedBy: approverName } }
             } else {
-                return { ...o, certApproval: { approved: true, approvedAt: now, approvedBy: "Cert Authority (Lloyd's Register)" } }
+                return { ...o, certApproval: { approved: true, approvedAt: now, approvedBy: approverName } }
             }
         }))
 
@@ -392,6 +410,12 @@ export function PrintApprovalPage({ role = 'admin' }: { role?: string }) {
         } else {
             toast.success(`Print Center authorized for ${order?.orderId}`, { description: 'Certification check passed. Recorded in audit log.' })
         }
+
+        fetch(`/api/orders/${id}/approve`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ step }),
+        }).catch(() => {})
 
         setIsConfirmOpen(false)
         setApprovingOrder(null)

@@ -548,7 +548,7 @@ Available senior employees for generate_onboarding:
             result = await generateOnboarding(plan.parameters.seniorEmployeeId ?? 'EMP-001')
             break
           case 'create_order':
-            result = await createOrder(plan.parameters)
+            result = await createOrder(plan.parameters as { partName: string; quantity: number; blueprintId?: string; priority?: string; centerId?: string; notes?: string })
             break
           case 'answer_question':
           default: {

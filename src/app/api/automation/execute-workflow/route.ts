@@ -11,10 +11,8 @@ import { executeWorkflowWithAI } from '@/lib/ai-workflow-executor'
 export async function POST(req: NextRequest) {
   try {
     const { session, error } = await requireAuth()
-    if (error) return error
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    if (error || !session) return error
+    const user = session.user
 
     const { workflowId, workflowName, trigger, data, orderId } = await req.json()
 
@@ -33,7 +31,7 @@ export async function POST(req: NextRequest) {
       workflowName,
       trigger: trigger || 'manual',
       data,
-      userId: session.user.id,
+      userId: user.id,
       executionId,
       timestamp: new Date(),
     })
@@ -42,10 +40,11 @@ export async function POST(req: NextRequest) {
     const logEntry = await prisma.workflowExecution.create({
       data: {
         executionId: result.executionId,
-        workflowId,
+        workflow: { connect: { id: workflowId } },
         workflowName,
         trigger: trigger || 'manual',
         orderId: orderId || null,
+        entityId: orderId || executionId,
         status: result.status,
         aiDecision: JSON.stringify(result),
         actions: JSON.stringify(result.actions),
@@ -83,9 +82,6 @@ export async function GET(req: NextRequest) {
   try {
     const { session, error } = await requireAuth()
     if (error) return error
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
 
     const { searchParams } = new URL(req.url)
     const workflowId = searchParams.get('workflowId')

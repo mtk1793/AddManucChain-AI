@@ -3,9 +3,8 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Search, Plus, User, Settings, ChevronDown, X, Menu, HelpCircle, Command, LayoutDashboard } from 'lucide-react'
-// Authentication removed - no longer importing useSession, signOut
-// import { useSession, signOut } from 'next-auth/react'
+import { Search, Plus, User, Settings, ChevronDown, X, Menu, HelpCircle, Command, LayoutDashboard, LogOut } from 'lucide-react'
+import { useSession, signOut } from 'next-auth/react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -93,12 +92,13 @@ const DASH_LINKS = [
 ]
 
 export function Header({ title, subtitle, action, onNavigate, onTutorialClick, onCommandPaletteTrigger, mobileOpen, setMobileOpen, currentRole = 'admin' }: HeaderProps) {
-  const staticUser = {
+  const { data: session } = useSession()
+  const user = session?.user || {
     name: 'Platform User',
     email: 'user@addmanuchain.com',
     company: 'AddManuChain',
     role: currentRole,
-    image: null
+    image: null as string | null,
   }
   
   const [query, setQuery] = useState('')
@@ -230,14 +230,14 @@ export function Header({ title, subtitle, action, onNavigate, onTutorialClick, o
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="flex items-center gap-3 px-3 py-2 h-auto">
                 <Avatar className="w-8 h-8">
-                  <AvatarImage src={staticUser.image || undefined} />
+                  <AvatarImage src={user.image || undefined} />
                   <AvatarFallback className="bg-[#0EA5E9] text-white text-xs">
-                    {getInitials(staticUser.name || 'User')}
+                    {getInitials(user.name || 'User')}
                     </AvatarFallback>
                   </Avatar>
                   <div className="text-left hidden lg:block">
-                    <p className="text-sm font-medium text-[#0F172A]">{staticUser.name}</p>
-                    <p className="text-xs text-slate-500">{staticUser.company}</p>
+                    <p className="text-sm font-medium text-[#0F172A]">{user.name}</p>
+                    <p className="text-xs text-slate-500">{user.company}</p>
                   </div>
                   <ChevronDown className="w-4 h-4 text-slate-400" />
                 </Button>
@@ -245,10 +245,10 @@ export function Header({ title, subtitle, action, onNavigate, onTutorialClick, o
               <DropdownMenuContent align="end" className="w-64">
                 <DropdownMenuLabel>
                   <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium">{staticUser.name}</p>
-                    <p className="text-xs text-slate-500">{staticUser.email}</p>
-                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium w-fit mt-2 ${getRoleBadgeColor(staticUser.role)}`}>
-                      {getRoleLabel(staticUser.role)}
+                    <p className="text-sm font-medium">{user.name}</p>
+                    <p className="text-xs text-slate-500">{user.email}</p>
+                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium w-fit mt-2 ${getRoleBadgeColor(user.role)}`}>
+                      {getRoleLabel(user.role)}
                     </span>
                   </div>
                 </DropdownMenuLabel>
@@ -261,7 +261,11 @@ export function Header({ title, subtitle, action, onNavigate, onTutorialClick, o
                   <Settings className="mr-2 h-4 w-4" />
                   <span>Settings</span>
                 </DropdownMenuItem>
-                {/* Log out functionality removed since authentication is disabled */}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => signOut({ callbackUrl: '/login' })}>
+                  <LogOut className="mr-2 h-4 w-4 text-red-500" />
+                  <span className="text-red-500">Log out</span>
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
         </div>

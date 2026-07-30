@@ -33,6 +33,8 @@ import {
   LabPage,
   EmergencyResponsePage,
   OEMPortalPage,
+  CertificationAuthorityPage,
+  PrintCenterDashboard,
   DigitalCooperativePage,
   MaterialPropertiesPage,
   AMFeasibilityPage,
@@ -211,6 +213,9 @@ export function DashboardShell() {
   const renderPage = () => {
     switch (activeTab) {
       case 'overview':
+        if (currentRole === 'cert_authority') return <CertificationAuthorityPage role={currentRole} />
+        if (currentRole === 'oem_partner') return <OEMPortalPage role={currentRole} />
+        if (currentRole === 'print_center') return <PrintCenterDashboard role={currentRole} />
         return <RoleDashboard role={currentRole} />
       case 'orders':
         return <OrdersPage role={currentRole} onNavigate={setActiveTab} />

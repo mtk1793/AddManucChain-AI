@@ -53,6 +53,7 @@ import {
   FlaskConical,
   TestTubeDiagonal,
   Download,
+  LogOut,
 
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -60,7 +61,11 @@ import { orders as initialOrders, blueprints, printCenters, users, Order, getOrd
 
 const statusColors: Record<string, string> = {
   pending: 'bg-slate-100 text-slate-600',
+  oem_approved: 'bg-purple-100 text-purple-700',
+  cert_approved: 'bg-emerald-100 text-emerald-700',
   printing: 'bg-[#0EA5E9]/10 text-[#0EA5E9]',
+  completed: 'bg-green-100 text-green-600',
+  archived: 'bg-slate-200 text-slate-400',
   quality_check: 'bg-[#F59E0B]/10 text-[#F59E0B]',
   shipped: 'bg-[#14B8A6]/10 text-[#14B8A6]',
   delivered: 'bg-green-100 text-green-600',
@@ -68,7 +73,11 @@ const statusColors: Record<string, string> = {
 
 const statusLabels: Record<string, string> = {
   pending: 'Pending',
+  oem_approved: 'OEM Approved',
+  cert_approved: 'Cert Approved',
   printing: 'Printing',
+  completed: 'Completed',
+  archived: 'Archived',
   quality_check: 'Quality Check',
   shipped: 'Shipped',
   delivered: 'Delivered',
@@ -80,7 +89,7 @@ const priorityColors: Record<string, string> = {
   high: 'bg-red-100 text-red-600',
 }
 
-const statusFlow = ['pending', 'printing', 'quality_check', 'shipped', 'delivered']
+const statusFlow = ['pending', 'oem_approved', 'cert_approved', 'printing', 'completed']
 
 // Map order state → pipeline stage (1-8)
 const PIPELINE_STAGE_INFO: Record<string, { num: number; label: string; emoji: string; color: string }> = {
@@ -372,9 +381,24 @@ const ROLE_CONTEXT = {
   admin:       { banner: '⚙️ Admin view — all orders, full control', color: 'bg-slate-50 border-slate-200 text-slate-700', canCreate: true,  canAdmin: true  },
 }
 
+const STORAGE_KEY = 'addmanuchain-orders'
+
 export function OrdersPage({ role = 'admin', onNavigate }: { role?: string; onNavigate?: (tab: string) => void }) {
   const [orders, setOrders] = useState<Order[]>(initialOrders)
+  const [hydrated, setHydrated] = useState(false)
   const [loaded, setLoaded] = useState(false)
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY)
+      if (saved) setOrders(JSON.parse(saved))
+    } catch {}
+    setHydrated(true)
+  }, [])
+
+  useEffect(() => {
+    if (hydrated) localStorage.setItem(STORAGE_KEY, JSON.stringify(orders))
+  }, [orders, hydrated])
 
   useEffect(() => {
     if (loaded) return
@@ -382,23 +406,29 @@ export function OrdersPage({ role = 'admin', onNavigate }: { role?: string; onNa
       .then(r => r.json())
       .then((data: { id: string; orderId: string; partName: string; status: string; priority: string; quantity: number; eta?: string; requesterId?: string; blueprintId?: string; centerId?: string; notes?: string; createdAt?: string }[]) => {
         if (data && data.length > 0) {
-          setOrders(data.map(o => ({
-            id: o.id,
-            orderId: o.orderId || `ORD-${String(Math.floor(Math.random() * 9000) + 1000)}`,
-            partName: o.partName,
-            status: o.status,
-            priority: o.priority || 'medium',
-            quantity: o.quantity || 1,
-            eta: o.eta || new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
-            requesterId: o.requesterId || 'user-1',
-            blueprintId: o.blueprintId || null,
-            centerId: o.centerId || null,
-            notes: o.notes || null,
-            createdAt: o.createdAt || new Date().toISOString(),
-            oemApproval: { approved: false, approvedAt: null, approvedBy: null },
-            certApproval: { approved: false, approvedAt: null, approvedBy: null },
-            printAuthToken: null,
-          })))
+          setOrders(prev => {
+            const existingIds = new Set(prev.map(o => o.id))
+            const newOnes = data
+              .filter(o => !existingIds.has(o.id))
+              .map(o => ({
+                id: o.id,
+                orderId: o.orderId || `ORD-${String(Math.floor(Math.random() * 9000) + 1000)}`,
+                partName: o.partName,
+                status: o.status,
+                priority: o.priority || 'medium',
+                quantity: o.quantity || 1,
+                eta: o.eta || new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
+                requesterId: o.requesterId || 'user-1',
+                blueprintId: o.blueprintId || null,
+                centerId: o.centerId || null,
+                notes: o.notes || null,
+                createdAt: o.createdAt || new Date().toISOString(),
+                oemApproval: { approved: false, approvedAt: null, approvedBy: null },
+                certApproval: { approved: false, approvedAt: null, approvedBy: null },
+                printAuthToken: null,
+              }))
+            return [...prev, ...newOnes]
+          })
         }
         setLoaded(true)
       })
@@ -456,8 +486,11 @@ export function OrdersPage({ role = 'admin', onNavigate }: { role?: string; onNa
     : role === 'print_center'
     ? orders.filter(o => o.centerId === 'pc-1' || o.centerId === 'pc-2')
     : orders  // admin / manager / oem_partner see everything
+  const visibleScoped = scopedOrders.filter(o => o.status !== 'archived')
+  const isOemStep = (o: Order) => o.status === 'pending' && !o.oemApproval.approved
+  const isCertStep = (o: Order) => o.status === 'pending' && o.oemApproval.approved && !o.certApproval.approved
 
-  const filteredOrders = scopedOrders.filter(order => {
+  const filteredOrders = visibleScoped.filter(order => {
     const matchesSearch = order.partName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       order.orderId.toLowerCase().includes(searchQuery.toLowerCase())
     const matchesStatus = statusFilter === 'all' || order.status === statusFilter
@@ -466,17 +499,17 @@ export function OrdersPage({ role = 'admin', onNavigate }: { role?: string; onNa
   })
 
   const stats = {
-    total: scopedOrders.length,
-    pending: scopedOrders.filter(o => o.status === 'pending').length,
-    printing: scopedOrders.filter(o => o.status === 'printing').length,
-    qualityCheck: scopedOrders.filter(o => o.status === 'quality_check').length,
-    shipped: scopedOrders.filter(o => o.status === 'shipped').length,
-    delivered: scopedOrders.filter(o => o.status === 'delivered').length,
+    total: visibleScoped.length,
+    pending: visibleScoped.filter(o => o.status === 'pending').length,
+    oem_approved: visibleScoped.filter(o => o.status === 'oem_approved').length,
+    cert_approved: visibleScoped.filter(o => o.status === 'cert_approved').length,
+    printing: visibleScoped.filter(o => o.status === 'printing').length,
+    completed: visibleScoped.filter(o => o.status === 'completed').length,
   }
 
-  const readyToPrint = scopedOrders.filter(o =>
+  const readyToPrint = visibleScoped.filter(o =>
     o.oemApproval.approved && o.certApproval.approved && !o.printAuthToken &&
-    !['printing', 'quality_check', 'shipped', 'delivered'].includes(o.status)
+    !['printing', 'completed', 'archived', 'quality_check', 'shipped', 'delivered'].includes(o.status)
   ).length
 
   const handleCreateOrder = async () => {
@@ -526,6 +559,29 @@ export function OrdersPage({ role = 'admin', onNavigate }: { role?: string; onNa
     setOrders(orders.filter(o => o.id !== orderId))
     toast.success('Order deleted')
     fetch(`/api/orders/${orderId}`, { method: 'DELETE' }).catch(() => {})
+  }
+
+  const handleCompletePrint = async (order: Order) => {
+    const ok = await new Promise(res => { toast.custom((t) => (
+      <div className="bg-white p-4 rounded-xl shadow-xl border border-slate-200">
+        <p className="text-sm font-medium">Mark print as complete for {order.orderId}?</p>
+        <div className="flex gap-2 mt-3">
+          <Button size="sm" className="bg-emerald-600 text-white" onClick={() => { toast.dismiss(t); res(true) }}>Complete</Button>
+          <Button size="sm" variant="outline" onClick={() => { toast.dismiss(t); res(false) }}>Cancel</Button>
+        </div>
+      </div>
+    ))})
+    if (!ok) return
+    setOrders(orders.map(o => o.id === order.id ? { ...o, status: 'completed', completedAt: new Date().toISOString() } : o))
+    toast.success(`Order ${order.orderId} completed`)
+    fetch(`/api/orders/${order.id}/approve`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ step: 'complete' }) }).catch(() => {})
+  }
+
+  const handleArchiveOrder = (order: Order) => {
+    if (!confirm(`Archive ${order.orderId}? It will vanish from the dashboard.`)) return
+    setOrders(orders.map(o => o.id === order.id ? { ...o, status: 'archived' } : o))
+    toast.success(`Order ${order.orderId} archived`)
+    fetch(`/api/orders/${order.id}/approve`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ step: 'archive' }) }).catch(() => {})
   }
 
   const handleSecurePrint = (order: Order) => {
@@ -1141,6 +1197,30 @@ export function OrdersPage({ role = 'admin', onNavigate }: { role?: string; onNa
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>
+
+                        {/* Chain: Complete Print (print_center on printing orders) */}
+                        {role === 'print_center' && order.status === 'printing' && (
+                          <Button
+                            size="icon"
+                            className="h-8 w-8 bg-emerald-600 hover:bg-emerald-700 text-white"
+                            onClick={() => handleCompletePrint(order)}
+                            title="Mark print as complete"
+                          >
+                            <CheckCircle2 className="w-4 h-4" />
+                          </Button>
+                        )}
+
+                        {/* Chain: Archive (completed orders vanish) */}
+                        {order.status === 'completed' && role !== 'end_user' && (
+                          <Button
+                            size="icon"
+                            className="h-8 w-8 bg-slate-600 hover:bg-slate-700 text-white"
+                            onClick={() => handleArchiveOrder(order)}
+                            title="Archive order (vanish)"
+                          >
+                            <LogOut className="w-4 h-4" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>

@@ -103,11 +103,17 @@ model Order {
   id            String      @id @default(cuid())
   orderId       String      @unique // e.g., ORD-2847
   partName      String
-  status        String      @default("pending") // pending, printing, quality_check, shipped, delivered
+  status        String      @default("pending") // pending, oem_approved, cert_approved, printing, completed, archived
   priority      String      @default("medium") // low, medium, high
   quantity      Int         @default(1)
   eta           DateTime?
   notes         String?
+  oemApprovedAt  DateTime?
+  oemApprovedBy  String?
+  certApprovedAt DateTime?
+  certApprovedBy String?
+  completedAt   DateTime?
+  archivedAt    DateTime?
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
   requesterId   String
@@ -503,12 +509,21 @@ model WorkflowExecution {
   id              String   @id @default(cuid())
   workflowId      String
   workflow        Workflow @relation(fields: [workflowId], references: [id])
-  entityId        String   // the ID of the entity being processed
+  entityId        String?  // the ID of the entity being processed
   status          String   @default("running") // running, completed, failed, cancelled
   currentStep     Int      @default(1)
+  executionId     String?
+  workflowName    String?
+  trigger         String?
+  orderId         String?
+  aiDecision      String?  // JSON
+  actions         String?  // JSON
+  nextSteps       String?  // JSON
+  duration        Int?
   log             String?  // JSON - execution log
   startedAt       DateTime @default(now())
   completedAt     DateTime?
+  createdAt       DateTime @default(now())
 }
 
 // PHASE 3: Predictive Analytics
