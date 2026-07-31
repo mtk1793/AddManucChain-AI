@@ -387,11 +387,12 @@ function PrinterPickerCard({
 
 // ── Role-specific context config ──────────────────────────────────────────────
 const ROLE_CONTEXT = {
-  end_user:    { banner: '🧑‍💼 Showing your orders only — submitted by your account', color: 'bg-sky-50 border-sky-200 text-sky-800', canCreate: true,  canAdmin: false },
-  print_center:{ banner: '🏭 Showing orders assigned to your print facility', color: 'bg-teal-50 border-teal-200 text-teal-800', canCreate: true,  canAdmin: false },
-  oem_partner: { banner: '🔑 Showing all orders — grant or deny OEM IP approvals from the Print Queue tab', color: 'bg-purple-50 border-purple-200 text-purple-800', canCreate: false, canAdmin: false },
+  end_user:    { banner: '🧑‍💼 End User — Your submitted orders', color: 'bg-sky-50 border-sky-200 text-sky-800', canCreate: true,  canAdmin: false },
+  print_center:{ banner: '🏭 Print Facility — Orders assigned to your printers', color: 'bg-teal-50 border-teal-200 text-teal-800', canCreate: true,  canAdmin: false },
+  oem_partner: { banner: '🔑 OEM Manufacturer — Grant IP licenses for blueprint printing', color: 'bg-purple-50 border-purple-200 text-purple-800', canCreate: false, canAdmin: false },
+  cert_authority:{ banner: '🏛️ Certification Body — Verify documents for print authorization', color: 'bg-emerald-50 border-emerald-200 text-emerald-800', canCreate: false, canAdmin: false },
   manager:     { banner: '📊 Full order management view — all accounts and facilities', color: 'bg-amber-50 border-amber-200 text-amber-800', canCreate: true,  canAdmin: true  },
-  admin:       { banner: '⚙️ Admin view — all orders, full control', color: 'bg-slate-50 border-slate-200 text-slate-700', canCreate: true,  canAdmin: true  },
+  admin:       { banner: '⚙️ Admin — all orders, full control', color: 'bg-slate-50 border-slate-200 text-slate-700', canCreate: true,  canAdmin: true  },
 }
 
 const STORAGE_KEY = 'addmanuchain-orders'

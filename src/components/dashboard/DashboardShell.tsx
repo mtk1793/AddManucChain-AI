@@ -64,7 +64,9 @@ import OneClickOrderAutomation from '@/components/OneClickOrderAutomation'
 
 const URL_TO_ROLE: Record<string, string> = {
   admin: 'admin',
-  operator: 'operator',
+  operator: 'end_user',
+  end_user: 'end_user',
+  oem: 'oem_partner',
   partner: 'oem_partner',
   cert: 'cert_authority',
   center: 'print_center',
@@ -106,15 +108,25 @@ export function DashboardShell() {
   }, [])
 
   const getPageTitle = () => {
+    const roleSubtitle = (role: string) => {
+      const subs: Record<string, string> = {
+        end_user: 'End User — Create & track print orders',
+        oem_partner: 'OEM Manufacturer — Manage IP licenses & blueprints',
+        cert_authority: 'Certification Body — Verify documents & authorize prints',
+        print_center: 'Print Facility — Run print jobs & manage fleet',
+        admin: 'Admin — Full platform control',
+      }
+      return subs[role] || 'Welcome back'
+    }
     switch (activeTab) {
       case 'overview':
-        return { title: 'Dashboard Overview', subtitle: 'Welcome back, John' }
+        return { title: 'Dashboard Overview', subtitle: roleSubtitle(currentRole) }
       case 'orders':
-        return { title: 'Orders', subtitle: 'Manage and track your part orders' }
+        return { title: 'Orders', subtitle: roleSubtitle(currentRole) }
       case 'printers':
         return { title: 'Printers', subtitle: 'Manage your own printers and connect to nearby facilities' }
       case 'print_queue':
-        return { title: 'Print Queue', subtitle: 'DRM approval pipeline — OEM & Certification Authority sign-offs' }
+        return { title: 'Print Queue', subtitle: 'OEM → Certification → Print Authorization chain' }
       case 'physical_inventory':
         return { title: 'Physical Inventory', subtitle: 'Manage physical spare parts across all sites' }
       case 'digital_inventory':
@@ -170,9 +182,9 @@ export function DashboardShell() {
       case 'my_printers':
         return { title: 'My Printers', subtitle: 'Manage on-site printer schedules, job queues, and material stock' }
       case 'oem_approvals':
-        return { title: 'DRM Approvals', subtitle: 'Review and approve digital rights management for OEM prints' }
+        return { title: 'OEM IP License Approvals', subtitle: 'Grant IP rights for printing blueprints' }
       case 'cert_approvals':
-        return { title: 'Print Approvals', subtitle: 'Review and approve prints for certification compliance' }
+        return { title: 'Certification Approvals', subtitle: 'Verify documentation for print authorization' }
       case 'reports':
         return { title: 'Reports & Export', subtitle: 'Generate and download reports in PDF, Excel, or CSV' }
       case 'notifications':
