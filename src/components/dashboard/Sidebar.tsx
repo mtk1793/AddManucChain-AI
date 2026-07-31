@@ -65,7 +65,7 @@ const demoPersonas = [
     badge: 'OEM Manufacturer',
   },
   {
-    role: 'end_user',
+    role: 'operator',
     name: 'Rig Operator',
     org: 'Statoil — Operations',
     initials: 'RO',
@@ -94,7 +94,7 @@ const demoPersonas = [
     org: 'PolyUnity NL (Print Facility)',
     initials: 'MO',
     color: '#EF4444',
-    badge: '3D Print Facility',
+    badge: 'Print Facility',
   },
 ]
 

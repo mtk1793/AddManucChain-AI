@@ -64,9 +64,7 @@ import OneClickOrderAutomation from '@/components/OneClickOrderAutomation'
 
 const URL_TO_ROLE: Record<string, string> = {
   admin: 'admin',
-  operator: 'end_user',
-  end_user: 'end_user',
-  oem: 'oem_partner',
+  operator: 'operator',
   partner: 'oem_partner',
   cert: 'cert_authority',
   center: 'print_center',
@@ -110,10 +108,10 @@ export function DashboardShell() {
   const getPageTitle = () => {
     const roleSubtitle = (role: string) => {
       const subs: Record<string, string> = {
-        end_user: 'End User — Create & track print orders',
-        oem_partner: 'OEM Manufacturer — Manage IP licenses & blueprints',
-        cert_authority: 'Certification Body — Verify documents & authorize prints',
-        print_center: 'Print Facility — Run print jobs & manage fleet',
+        operator: 'End User — Create & track print orders',
+        oem_partner: 'OEM Manufacturer — IP licenses & blueprints',
+        cert_authority: 'Certification Body — Verify & authorize prints',
+        print_center: 'Print Facility — Run jobs & manage fleet',
         admin: 'Admin — Full platform control',
       }
       return subs[role] || 'Welcome back'

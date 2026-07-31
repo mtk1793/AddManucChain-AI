@@ -387,8 +387,9 @@ function PrinterPickerCard({
 
 // ── Role-specific context config ──────────────────────────────────────────────
 const ROLE_CONTEXT = {
+  operator:    { banner: '🧑‍💼 End User — Your submitted orders', color: 'bg-sky-50 border-sky-200 text-sky-800', canCreate: true,  canAdmin: false },
   end_user:    { banner: '🧑‍💼 End User — Your submitted orders', color: 'bg-sky-50 border-sky-200 text-sky-800', canCreate: true,  canAdmin: false },
-  print_center:{ banner: '🏭 Print Facility — Orders assigned to your printers', color: 'bg-teal-50 border-teal-200 text-teal-800', canCreate: true,  canAdmin: false },
+  print_center:{ banner: '🏭 Print Facility — Orders at your facility', color: 'bg-teal-50 border-teal-200 text-teal-800', canCreate: true,  canAdmin: false },
   oem_partner: { banner: '🔑 OEM Manufacturer — Grant IP licenses for blueprint printing', color: 'bg-purple-50 border-purple-200 text-purple-800', canCreate: false, canAdmin: false },
   cert_authority:{ banner: '🏛️ Certification Body — Verify documents for print authorization', color: 'bg-emerald-50 border-emerald-200 text-emerald-800', canCreate: false, canAdmin: false },
   manager:     { banner: '📊 Full order management view — all accounts and facilities', color: 'bg-amber-50 border-amber-200 text-amber-800', canCreate: true,  canAdmin: true  },
@@ -495,7 +496,7 @@ export function OrdersPage({ role = 'admin', onNavigate }: { role?: string; onNa
 
   // Scope data to what this role should see
   const ctx = ROLE_CONTEXT[role as keyof typeof ROLE_CONTEXT] ?? ROLE_CONTEXT.admin
-  const scopedOrders = role === 'end_user'
+  const scopedOrders = role === 'end_user' || role === 'operator'
     ? orders.filter(o => o.requesterId === 'user-1')
     : role === 'print_center'
     ? orders.filter(o => o.centerId === 'pc-1' || o.centerId === 'pc-2')

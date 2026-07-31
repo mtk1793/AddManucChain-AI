@@ -53,10 +53,10 @@ const getRoleLabel = (role: string) => {
   switch (role) {
     case 'admin': return 'Admin'
     case 'customer_admin': return 'Customer Admin'
-    case 'oem_partner': return 'OEM Partner'
-    case 'print_center': return 'Print Center'
-    case 'cert_authority': return 'Cert Authority'
-    case 'operator': return 'Operator'
+    case 'oem_partner': return 'OEM Manufacturer'
+    case 'print_center': return 'Print Facility'
+    case 'cert_authority': return 'Certification Body'
+    case 'operator': return 'End User'
     default: return role
   }
 }
@@ -85,10 +85,10 @@ const searchIndex = buildSearchIndex()
 
 const DASH_LINKS = [
   { role: 'admin', label: 'Admin', url: '/dash/admin', color: 'bg-violet-500' },
-  { role: 'operator', label: 'Operator', url: '/dash/operator', color: 'bg-sky-500' },
-  { role: 'partner', label: 'Partner', url: '/dash/partner', color: 'bg-teal-500' },
-  { role: 'cert', label: 'Cert Auth', url: '/dash/cert', color: 'bg-amber-500' },
-  { role: 'center', label: 'Print Ctr', url: '/dash/center', color: 'bg-rose-500' },
+  { role: 'operator', label: 'End User', url: '/dash/operator', color: 'bg-sky-500' },
+  { role: 'partner', label: 'OEM Manufacturer', url: '/dash/partner', color: 'bg-teal-500' },
+  { role: 'cert', label: 'Certification Body', url: '/dash/cert', color: 'bg-amber-500' },
+  { role: 'center', label: 'Print Facility', url: '/dash/center', color: 'bg-rose-500' },
 ]
 
 export function Header({ title, subtitle, action, onNavigate, onTutorialClick, onCommandPaletteTrigger, mobileOpen, setMobileOpen, currentRole = 'admin' }: HeaderProps) {
