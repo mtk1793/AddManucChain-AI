@@ -332,13 +332,14 @@ export function PrintApprovalPage({ role = 'admin' }: { role?: string }) {
 
     // Role-specific queue scoping:
     // oem_partner sees only items needing OEM sign-off
-    // cert_authority sees only items needing cert sign-off
+    // cert_authority sees only items needing cert sign-off (MUST have OEM approval first)
     // print_center sees items at their facility ready for token issuance
-    const scopedForOEM  = orders.filter(o => !o.oemApproval.approved && !['delivered'].includes(o.status))
-    const scopedForCert = orders.filter(o => !o.certApproval.approved && !['delivered'].includes(o.status))
+    const FINISHED = ['delivered', 'archived', 'completed']
+    const scopedForOEM  = orders.filter(o => !o.oemApproval.approved && !FINISHED.includes(o.status))
+    const scopedForCert = orders.filter(o => o.oemApproval.approved && !o.certApproval.approved && !FINISHED.includes(o.status))
 
-    const pendingOEM  = role === 'oem_partner'    ? scopedForOEM  : orders.filter(o => !o.oemApproval.approved && !['delivered'].includes(o.status))
-    let pendingCert = role === 'cert_authority' ? scopedForCert : orders.filter(o => !o.certApproval.approved && !['delivered'].includes(o.status))
+    const pendingOEM  = role === 'oem_partner'    ? scopedForOEM  : orders.filter(o => !o.oemApproval.approved && !FINISHED.includes(o.status))
+    let pendingCert = role === 'cert_authority' ? scopedForCert : orders.filter(o => o.oemApproval.approved && !o.certApproval.approved && !FINISHED.includes(o.status))
     
     // Apply risk filter to cert authority queue
     if (role === 'cert_authority' && riskFilter !== 'all') {

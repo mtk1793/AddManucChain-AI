@@ -100,7 +100,7 @@ export function CertificationAuthorityPage({ role = 'admin' }: { role?: string }
   }, [orders, loaded])
 
   const pendingCert = orders.filter(
-    o => !o.certApproval.approved && !['printing', 'quality_check', 'shipped', 'delivered', 'completed', 'archived'].includes(o.status)
+    o => o.oemApproval.approved && !o.certApproval.approved && !['printing', 'quality_check', 'shipped', 'delivered', 'completed', 'archived'].includes(o.status)
   )
 
   const readyToPrint = orders.filter(
