@@ -153,7 +153,7 @@ const rolePermissions: Record<string, string[]> = {
   ],
   // DNV, Lloyd's, etc
   cert_authority: [
-    'overview', 'print_queue', 'cert_approvals',
+    'overview', 'print_queue', 'cert_approvals', 'orders',
     'blueprints',
     'certifications', 'authorities', 'audit',
     'material_properties',
@@ -272,18 +272,25 @@ const labTestingMenuSections = [
 // Certification Authority menu
 const certAuthorityMenuSections = [
   {
-    title: 'Approvals',
+    title: 'Review & Approve',
     items: [
-      { id: 'overview',       label: 'Overview',           icon: LayoutDashboard },
+      { id: 'overview',       label: 'Cert Dashboard',     icon: LayoutDashboard },
+      { id: 'cert_approvals', label: 'Print Approvals',    icon: CheckCircle2 },
+      { id: 'orders',         label: 'All Orders',         icon: Package },
+    ],
+  },
+  {
+    title: 'Certification Registry',
+    items: [
       { id: 'certifications', label: 'Certifications',     icon: Shield },
-      { id: 'cert_approvals', label: 'Print Approvals',    icon: CheckCircle2, badge: 6 },
       { id: 'authorities',    label: 'Authorities',        icon: Users },
     ],
   },
   {
     title: 'Compliance',
     items: [
-      { id: 'audit',  label: 'Audit Chain',    icon: FileText },
+      { id: 'audit',          label: 'Audit Chain',        icon: FileText },
+      { id: 'blueprints',     label: 'Blueprints',         icon: FileBox },
     ],
   },
   {
