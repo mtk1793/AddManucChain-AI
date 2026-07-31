@@ -38,7 +38,7 @@ import {
     X,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { orders as initialOrders, blueprints, printCenters, Order, getOrderFinancials } from '@/lib/static-data'
+import { orders as initialOrders, blueprints, printCenters, Order, getOrderFinancials, sha256, buildHashChain } from '@/lib/static-data'
 
 // Denial reason codes
 const DENIAL_REASONS = [
@@ -392,15 +392,16 @@ export function PrintApprovalPage({ role = 'admin' }: { role?: string }) {
         if (!approvingOrder) return
         const { id, type } = approvingOrder
         const now = new Date().toISOString()
-        const step = type === 'oem' ? 'oem' : 'cert'
+        const step = type === 'oem' ? 'oem_approved' : 'cert_approved'
         const approverName = type === 'oem' ? 'OEM Partner (Baker Hughes)' : "Cert Authority (Lloyd's Register)"
 
         setOrders(prev => prev.map(o => {
             if (o.id !== id) return o
+            const chain = buildHashChain(o, step, `${type === 'oem' ? 'OEM' : 'Cert'} approval by ${approverName}`)
             if (type === 'oem') {
-                return { ...o, oemApproval: { approved: true, approvedAt: now, approvedBy: approverName } }
+                return { ...o, oemApproval: { approved: true, approvedAt: now, approvedBy: approverName }, hashChain: chain }
             } else {
-                return { ...o, certApproval: { approved: true, approvedAt: now, approvedBy: approverName } }
+                return { ...o, certApproval: { approved: true, approvedAt: now, approvedBy: approverName }, hashChain: chain }
             }
         }))
 

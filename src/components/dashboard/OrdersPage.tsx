@@ -54,10 +54,11 @@ import {
   TestTubeDiagonal,
   Download,
   LogOut,
+  XCircle,
 
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { orders as initialOrders, blueprints, printCenters, users, Order, getOrderFinancials } from '@/lib/static-data'
+import { orders as initialOrders, blueprints, printCenters, users, Order, getOrderFinancials, sha256, buildHashChain } from '@/lib/static-data'
 
 const statusColors: Record<string, string> = {
   pending: 'bg-slate-100 text-slate-600',
@@ -89,7 +90,19 @@ const priorityColors: Record<string, string> = {
   high: 'bg-red-100 text-red-600',
 }
 
-const statusFlow = ['pending', 'oem_approved', 'cert_approved', 'printing', 'completed']
+const qcStatusColors: Record<string, string> = {
+  pending: 'bg-amber-100 text-amber-700',
+  passed: 'bg-emerald-100 text-emerald-700',
+  failed: 'bg-red-100 text-red-700',
+}
+
+const qcStatusLabels: Record<string, string> = {
+  pending: 'QC Pending',
+  passed: 'QC Passed',
+  failed: 'QC Failed',
+}
+
+const statusFlow = ['pending', 'oem_approved', 'cert_approved', 'printing', 'quality_check', 'completed']
 
 // Map order state → pipeline stage (1-8)
 const PIPELINE_STAGE_INFO: Record<string, { num: number; label: string; emoji: string; color: string }> = {
@@ -565,6 +578,7 @@ export function OrdersPage({ role = 'admin', onNavigate }: { role?: string; onNa
     const ok = await new Promise(res => { toast.custom((t) => (
       <div className="bg-white p-4 rounded-xl shadow-xl border border-slate-200">
         <p className="text-sm font-medium">Mark print as complete for {order.orderId}?</p>
+        <p className="text-xs text-slate-500 mt-1">Order will enter Quality Check queue.</p>
         <div className="flex gap-2 mt-3">
           <Button size="sm" className="bg-emerald-600 text-white" onClick={() => { toast.dismiss(t); res(true) }}>Complete</Button>
           <Button size="sm" variant="outline" onClick={() => { toast.dismiss(t); res(false) }}>Cancel</Button>
@@ -572,9 +586,24 @@ export function OrdersPage({ role = 'admin', onNavigate }: { role?: string; onNa
       </div>
     ))})
     if (!ok) return
-    setOrders(orders.map(o => o.id === order.id ? { ...o, status: 'completed', completedAt: new Date().toISOString() } : o))
-    toast.success(`Order ${order.orderId} completed`)
+    const chain = buildHashChain({ ...order, hashChain: order.hashChain || [] }, 'print_completed', `Print job complete for ${order.orderId}`)
+    setOrders(orders.map(o => o.id === order.id ? { ...o, status: 'quality_check', qcStatus: 'pending', hashChain: chain } : o))
+    toast.success(`Order ${order.orderId} sent to quality check`, {
+      description: `Hash: ${chain[chain.length-1].hash.substring(0, 16)}...`,
+    })
     fetch(`/api/orders/${order.id}/approve`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ step: 'complete' }) }).catch(() => {})
+  }
+
+  const handlePassQC = (order: Order) => {
+    const chain = buildHashChain({ ...order, hashChain: order.hashChain || [] }, 'qc_passed', `QC inspection passed for ${order.orderId}`)
+    setOrders(orders.map(o => o.id === order.id ? { ...o, status: 'completed', qcStatus: 'passed', hashChain: chain } : o))
+    toast.success(`QC passed: ${order.orderId}`, { description: 'Order marked as completed.' })
+  }
+
+  const handleFailQC = (order: Order) => {
+    const chain = buildHashChain({ ...order, hashChain: order.hashChain || [] }, 'qc_failed', `QC inspection failed for ${order.orderId}`)
+    setOrders(orders.map(o => o.id === order.id ? { ...o, status: 'printing', qcStatus: 'failed', hashChain: chain } : o))
+    toast.error(`QC failed: ${order.orderId}`, { description: 'Order sent back to printing for rework.' })
   }
 
   const handleArchiveOrder = (order: Order) => {
@@ -592,9 +621,11 @@ export function OrdersPage({ role = 'admin', onNavigate }: { role?: string; onNa
   const confirmSecurePrint = () => {
     if (!selectedOrder) return
     const token = generatePrintToken()
+    const order = orders.find(o => o.id === selectedOrder.id)
+    const chain = buildHashChain({ ...order!, hashChain: order?.hashChain || [] }, 'print_authorized', `Print token issued for ${order?.orderId}`)
     setOrders(orders.map(o => {
       if (o.id !== selectedOrder.id) return o
-      return { ...o, status: 'printing', printAuthToken: token }
+      return { ...o, status: 'printing', printAuthToken: token, hashChain: chain }
     }))
     setTokenVisible(token)
     setIsPrintConfirmOpen(false)
@@ -602,7 +633,6 @@ export function OrdersPage({ role = 'admin', onNavigate }: { role?: string; onNa
       description: 'Encrypted G-code streaming to print center. Action logged.',
       duration: 6000,
     })
-    // Hide token after 30 seconds
     setTimeout(() => setTokenVisible(null), 30000)
   }
 
@@ -935,6 +965,11 @@ export function OrdersPage({ role = 'admin', onNavigate }: { role?: string; onNa
                               <Badge className={statusColors[order.status]}>
                                 {statusLabels[order.status]}
                               </Badge>
+                              {order.qcStatus && (
+                                <Badge className={`ml-1.5 ${qcStatusColors[order.qcStatus]}`}>
+                                  {qcStatusLabels[order.qcStatus]}
+                                </Badge>
+                              )}
                             </TableCell>
                             <TableCell>
                               <Badge className={priorityColors[order.priority]}>
@@ -1012,6 +1047,11 @@ export function OrdersPage({ role = 'admin', onNavigate }: { role?: string; onNa
                               <Badge className={statusColors[order.status]}>
                                 {statusLabels[order.status]}
                               </Badge>
+                              {order.qcStatus && (
+                                <Badge className={`ml-1.5 ${qcStatusColors[order.qcStatus]}`}>
+                                  {qcStatusLabels[order.qcStatus]}
+                                </Badge>
+                              )}
                             </TableCell>
                             <TableCell>
                               <Badge className={priorityColors[order.priority]}>
@@ -1112,6 +1152,11 @@ export function OrdersPage({ role = 'admin', onNavigate }: { role?: string; onNa
                       <Badge className={statusColors[order.status]}>
                         {statusLabels[order.status]}
                       </Badge>
+                      {order.qcStatus && (
+                        <Badge className={`ml-1.5 ${qcStatusColors[order.qcStatus]}`}>
+                          {qcStatusLabels[order.qcStatus]}
+                        </Badge>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Badge className={priorityColors[order.priority]}>
@@ -1208,6 +1253,28 @@ export function OrdersPage({ role = 'admin', onNavigate }: { role?: string; onNa
                           >
                             <CheckCircle2 className="w-4 h-4" />
                           </Button>
+                        )}
+
+                        {/* QC Controls (print_center on quality_check orders) */}
+                        {role === 'print_center' && order.status === 'quality_check' && (
+                          <>
+                            <Button
+                              size="icon"
+                              className="h-8 w-8 bg-red-600 hover:bg-red-700 text-white"
+                              onClick={() => handleFailQC(order)}
+                              title="Fail QC — send back for reprint"
+                            >
+                              <XCircle className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              className="h-8 w-8 bg-emerald-600 hover:bg-emerald-700 text-white"
+                              onClick={() => handlePassQC(order)}
+                              title="Pass QC — mark as completed"
+                            >
+                              <CheckCircle2 className="w-4 h-4" />
+                            </Button>
+                          </>
                         )}
 
                         {/* Chain: Archive (completed orders vanish) */}

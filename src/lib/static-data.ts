@@ -179,6 +179,14 @@ export type ApprovalState = {
   approvedBy: string | null
 }
 
+export type HashLink = {
+  step: string
+  hash: string
+  prevHash: string
+  timestamp: string
+  metadata: string
+}
+
 export type Order = {
   id: string
   orderId: string
@@ -196,6 +204,29 @@ export type Order = {
   oemApproval: ApprovalState
   certApproval: ApprovalState
   printAuthToken: string | null
+  hashChain?: HashLink[]
+  qcStatus?: 'pending' | 'passed' | 'failed'
+}
+
+export function sha256(input: string): string {
+  let h = 0
+  for (let i = 0; i < input.length; i++) {
+    const ch = input.charCodeAt(i)
+    h = ((h << 5) - h + ch) | 0
+  }
+  return 'SHA256:' + Math.abs(h).toString(16).padStart(16, '0')
+}
+
+export function createHashLink(step: string, prevHash: string, metadata: string): HashLink {
+  const now = new Date().toISOString()
+  const hash = sha256(`${step}:${prevHash}:${now}:${metadata}`)
+  return { step, hash, prevHash, timestamp: now, metadata }
+}
+
+export function buildHashChain(order: Order, step: string, metadata: string): HashLink[] {
+  const prev = order.hashChain || []
+  const prevHash = prev.length > 0 ? prev[prev.length - 1].hash : sha256(`${order.orderId}:order_created:${order.createdAt}`)
+  return [...prev, createHashLink(step, prevHash, metadata)]
 }
 
 export function getStatusLabel(status: string): string {
@@ -203,10 +234,11 @@ export function getStatusLabel(status: string): string {
     pending: 'Pending',
     oem_approved: 'OEM Approved',
     cert_approved: 'Cert Approved',
+    print_authorized: 'Print Authorized',
     printing: 'Printing',
+    quality_check: 'Quality Check',
     completed: 'Completed',
     archived: 'Archived',
-    quality_check: 'Quality Check',
     shipped: 'Shipped',
     delivered: 'Delivered',
   }
@@ -218,10 +250,11 @@ export function getStatusColor(status: string): string {
     pending: 'bg-slate-100 text-slate-600',
     oem_approved: 'bg-purple-100 text-purple-700',
     cert_approved: 'bg-emerald-100 text-emerald-700',
+    print_authorized: 'bg-teal-100 text-teal-700',
     printing: 'bg-[#0EA5E9]/10 text-[#0EA5E9]',
+    quality_check: 'bg-amber-100 text-amber-700',
     completed: 'bg-green-100 text-green-600',
     archived: 'bg-slate-200 text-slate-400',
-    quality_check: 'bg-[#F59E0B]/10 text-[#F59E0B]',
     shipped: 'bg-[#14B8A6]/10 text-[#14B8A6]',
     delivered: 'bg-green-100 text-green-600',
   }

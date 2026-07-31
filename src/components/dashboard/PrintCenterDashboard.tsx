@@ -7,9 +7,9 @@ import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import {
   Printer, Package, KeyRound, Gauge, AlertTriangle, Zap, Shield, Lock,
-  CheckCircle2, Clock, Plus, Play, Pause, Archive, Boxes, Hash,
+  CheckCircle2, XCircle, Clock, Plus, Play, Pause, Archive, Boxes, Hash,
 } from 'lucide-react'
-import { orders as initialOrders, type Order, printCenters } from '@/lib/static-data'
+import { orders as initialOrders, type Order, type HashLink, printCenters, sha256, buildHashChain, certifications } from '@/lib/static-data'
 import { toast } from 'sonner'
 
 const STORAGE_KEY = 'addmanuchain-orders'
@@ -21,19 +21,10 @@ const FACILITY_PRINTERS = [
   { id: 'osp-04', model: 'Formlabs Form 3', location: 'Lab / QC Station', status: 'offline', currentJob: null, certBody: 'Bureau Veritas', materials: ['Standard Resin', 'Tough 1500', 'Durable Resin'], tech: 'SLA (LFS)' },
 ]
 
-function sha256Mock(input: string): string {
-  let h = 0
-  for (let i = 0; i < input.length; i++) {
-    const ch = input.charCodeAt(i)
-    h = ((h << 5) - h + ch) | 0
-  }
-  return 'SHA256:' + Math.abs(h).toString(16).padStart(16, '0')
-}
-
 export function PrintCenterDashboard({ role = 'admin' }: { role?: string }) {
   const [orders, setOrders] = useState<Order[]>(initialOrders)
   const [loaded, setLoaded] = useState(false)
-  const [activeTab, setActiveTab] = useState<'approvals' | 'printing' | 'completed' | 'create' | 'fleet'>('approvals')
+  const [activeTab, setActiveTab] = useState<'approvals' | 'printing' | 'qc' | 'completed' | 'create' | 'fleet' | 'governance'>('approvals')
   const [selectedPrinter, setSelectedPrinter] = useState<string>('')
   const [confirmingOrder, setConfirmingOrder] = useState<string | null>(null)
   const [archiveConfirm, setArchiveConfirm] = useState<string | null>(null)
@@ -78,8 +69,16 @@ export function PrintCenterDashboard({ role = 'admin' }: { role?: string }) {
     o => o.status === 'completed'
   )
 
+  const qcOrders = ordersForMyFacility.filter(
+    o => o.status === 'quality_check'
+  )
+
   const archivedOrders = ordersForMyFacility.filter(
     o => o.status === 'archived'
+  )
+
+  const expiredCerts = certifications.filter(
+    c => c.status === 'expired' || c.status === 'expiring_soon'
   )
 
   const totalCompleted = completedOrders.length + archivedOrders.length + ordersForMyFacility.filter(o => ['shipped', 'delivered'].includes(o.status)).length
@@ -93,41 +92,63 @@ export function PrintCenterDashboard({ role = 'admin' }: { role?: string }) {
       toast.error('Please select a printer')
       return
     }
-    const now = new Date().toISOString()
     const token = `drm-${cryptoRandomId()}`
-    const tokenHash = sha256Mock(token)
+    const tokenHash = sha256(token)
     const printer = FACILITY_PRINTERS.find(p => p.id === printerId)
+    const order = orders.find(o => o.id === orderId)
+    const chain = buildHashChain({ ...order!, hashChain: order?.hashChain || [] }, 'print_authorized', `Print token issued for printer: ${printer?.model}`)
     setOrders(prev => prev.map(o => {
       if (o.id !== orderId) return o
-      return { ...o, status: 'printing', printAuthToken: token }
+      return { ...o, status: 'printing', printAuthToken: token, hashChain: chain }
     }))
     toast.success(`Print token issued`, {
-      description: `Assigned to ${printer?.model || 'printer'}. Token hash: ${tokenHash}`,
+      description: `Assigned to ${printer?.model || 'printer'}. Chain hash: ${chain[chain.length-1].hash}`,
     })
     setConfirmingOrder(null)
     setSelectedPrinter('')
-  }, [])
+  }, [orders])
 
   const handleCompletePrint = useCallback((orderId: string) => {
+    const order = orders.find(o => o.id === orderId)
+    const chain = buildHashChain({ ...order!, hashChain: order?.hashChain || [] }, 'print_completed', `Print job complete for ${order?.orderId}`)
     setOrders(prev => prev.map(o => {
       if (o.id !== orderId) return o
-      return { ...o, status: 'completed' }
+      return { ...o, status: 'quality_check', qcStatus: 'pending', hashChain: chain }
     }))
-    const order = orders.find(o => o.id === orderId)
-    const completedHash = sha256Mock(`${order?.orderId}-${order?.printAuthToken}-${Date.now()}`)
-    toast.success(`Print completed: ${order?.orderId}`, {
-      description: `Completion hash: ${completedHash}. Ready to archive.`,
+    toast.success(`Print done: ${order?.orderId}`, {
+      description: `Hash: ${chain[chain.length-1].hash}. Ready for quality inspection.`,
     })
   }, [orders])
 
-  const handleArchive = useCallback((orderId: string) => {
+  const handlePassQC = useCallback((orderId: string) => {
+    const order = orders.find(o => o.id === orderId)
+    const chain = buildHashChain({ ...order!, hashChain: order?.hashChain || [] }, 'qc_passed', `QC inspection passed for ${order?.orderId}`)
     setOrders(prev => prev.map(o => {
       if (o.id !== orderId) return o
-      return { ...o, status: 'archived' }
+      return { ...o, status: 'completed', qcStatus: 'passed', hashChain: chain }
     }))
+    toast.success(`QC passed: ${order?.orderId}`, { description: 'Order marked as completed. Ready to archive.' })
+  }, [orders])
+
+  const handleFailQC = useCallback((orderId: string) => {
     const order = orders.find(o => o.id === orderId)
+    const chain = buildHashChain({ ...order!, hashChain: order?.hashChain || [] }, 'qc_failed', `QC inspection failed for ${order?.orderId}`)
+    setOrders(prev => prev.map(o => {
+      if (o.id !== orderId) return o
+      return { ...o, status: 'printing', qcStatus: 'failed', hashChain: chain }
+    }))
+    toast.error(`QC failed: ${order?.orderId}`, { description: 'Order sent back to printing for rework.' })
+  }, [orders])
+
+  const handleArchive = useCallback((orderId: string) => {
+    const order = orders.find(o => o.id === orderId)
+    const chain = buildHashChain({ ...order!, hashChain: order?.hashChain || [] }, 'order_archived', `Order lifecycle sealed for ${order?.orderId}`)
+    setOrders(prev => prev.map(o => {
+      if (o.id !== orderId) return o
+      return { ...o, status: 'archived', hashChain: chain }
+    }))
     toast.success(`Order archived: ${order?.orderId}`, {
-      description: 'Order lifecycle complete. Immutable audit record sealed.',
+      description: `Seal hash: ${chain[chain.length-1].hash}. Immutable record sealed.`,
     })
     setArchiveConfirm(null)
   }, [orders])
@@ -156,7 +177,7 @@ export function PrintCenterDashboard({ role = 'admin' }: { role?: string }) {
       certApproval: { approved: false, approvedAt: null, approvedBy: null },
       printAuthToken: null,
     }
-    const orderHash = sha256Mock(`${newOrder.orderId}-${newOrder.partName}-${Date.now()}`)
+    const orderHash = sha256(`${newOrder.orderId}-${newOrder.partName}-${Date.now()}`)
     setOrders(prev => [newOrder, ...prev])
     setFormData({ partName: '', priority: 'medium', quantity: 1, notes: '' })
     toast.success(`Order ${newOrder.orderId} created`, {
@@ -193,9 +214,9 @@ export function PrintCenterDashboard({ role = 'admin' }: { role?: string }) {
         {[
           { icon: Package, label: 'Awaiting Approval', value: pendingApproval.length, color: '#F59E0B' },
           { icon: Zap, label: 'Printing Now', value: activePrints.length, color: '#0EA5E9' },
-          { icon: CheckCircle2, label: 'Completed', value: completedOrders.length, color: '#10B981' },
+          { icon: CheckCircle2, label: 'QC Pending', value: qcOrders.length, color: '#f97316' },
           { icon: Archive, label: 'Archived', value: archivedOrders.length, color: '#64748B' },
-          { icon: Boxes, label: 'Materials OK', value: '3/4', color: '#6366F1' },
+          { icon: Boxes, label: 'Certs Expiring', value: expiredCerts.length, color: '#ef4444' },
         ].map(stat => (
           <Card key={stat.label} className="border-0 shadow-sm">
             <CardContent className="p-4 flex items-center gap-3">
@@ -215,9 +236,11 @@ export function PrintCenterDashboard({ role = 'admin' }: { role?: string }) {
         {[
           { key: 'approvals', label: 'Approve Prints', count: pendingApproval.length, icon: KeyRound, color: 'amber' },
           { key: 'printing', label: 'Printing', count: activePrints.length, icon: Zap, color: 'sky' },
+          { key: 'qc', label: 'QC Check', count: qcOrders.length, icon: CheckCircle2, color: 'orange' },
           { key: 'completed', label: 'Complete & Archive', count: completedOrders.length, icon: Archive, color: 'emerald' },
           { key: 'create', label: 'New Order', icon: Plus, color: 'slate' },
           { key: 'fleet', label: 'Fleet', count: 4, icon: Printer, color: 'slate' },
+          { key: 'governance', label: 'Governance', count: expiredCerts.length, icon: Shield, color: 'red' },
         ].map(tab => (
           <button
             key={tab.key}
@@ -471,12 +494,90 @@ export function PrintCenterDashboard({ role = 'admin' }: { role?: string }) {
                   <div className="mt-2 p-2 bg-slate-900 rounded-lg">
                     <p className="text-[9px] text-slate-500 font-mono uppercase">Encrypted G-code Stream</p>
                     <p className="text-[10px] text-emerald-400 font-mono truncate">
-                      {sha256Mock(`${order.orderId}-${order.printAuthToken}`)} · One-time use · Auto-expire
+                      {sha256(`${order.orderId}-${order.printAuthToken}`)} · One-time use · Auto-expire
                     </p>
                   </div>
                 </div>
               </Card>
             ))
+          )}
+        </div>
+      )}
+
+      {/* ───── QC CHECK ───── */}
+      {activeTab === 'qc' && (
+        <div className="space-y-4">
+          <Card className="bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200">
+            <CardContent className="p-4 flex items-center gap-3">
+              <CheckCircle2 className="w-5 h-5 text-amber-600 flex-shrink-0" />
+              <div>
+                <p className="text-sm font-semibold text-amber-800">Quality Inspection Queue</p>
+                <p className="text-xs text-amber-600">Review printed parts. Pass QC to complete the order, or fail to send back for reprint.</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {qcOrders.length === 0 ? (
+            <div className="text-center py-12 text-slate-400">
+              <CheckCircle2 className="w-12 h-12 mx-auto mb-3 text-amber-300" />
+              <p className="font-medium">No orders awaiting quality inspection</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {qcOrders.map(order => (
+                <Card key={order.id} className="border-amber-200 shadow-sm bg-amber-50/30">
+                  <div className="p-4">
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-semibold text-slate-800">{order.partName}</p>
+                          <Badge className="text-[10px] bg-amber-100 text-amber-700">QC Pending</Badge>
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-slate-500 mt-0.5">
+                          <span>{order.orderId}</span>
+                          <span>Qty: {order.quantity}</span>
+                          {order.hashChain && order.hashChain.length > 0 && (
+                            <span className="font-mono text-[9px] text-amber-600">
+                              <Shield className="w-3 h-3 inline mr-0.5" />
+                              {order.hashChain[order.hashChain.length - 1].hash}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-xs h-8 text-red-600 border-red-200 hover:bg-red-50"
+                          onClick={() => handleFailQC(order.id)}
+                        >
+                          <XCircle className="w-3 h-3 mr-1" /> Fail QC
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="text-xs h-8 bg-emerald-600 hover:bg-emerald-700 text-white"
+                          onClick={() => handlePassQC(order.id)}
+                        >
+                          <CheckCircle2 className="w-3 h-3 mr-1" /> Pass QC
+                        </Button>
+                      </div>
+                    </div>
+                    {order.hashChain && order.hashChain.length > 0 && (
+                      <div className="mt-2 p-2 bg-slate-900 rounded-lg">
+                        <p className="text-[9px] text-slate-500 font-mono uppercase">Hash Chain ({order.hashChain.length} links)</p>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {order.hashChain.map((link, i) => (
+                            <span key={i} className="text-[9px] font-mono text-emerald-400 bg-slate-800 px-1.5 py-0.5 rounded">
+                              {link.step}: {link.hash.slice(0, 14)}...
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </Card>
+              ))}
+            </div>
           )}
         </div>
       )}
@@ -518,7 +619,7 @@ export function PrintCenterDashboard({ role = 'admin' }: { role?: string }) {
                             <span>Qty: {order.quantity}</span>
                             <span className="font-mono text-[10px]">
                               <Shield className="w-3 h-3 inline mr-0.5" />
-                              {sha256Mock(`${order.orderId}-${order.printAuthToken}-${order.createdAt}`)}
+                              {sha256(`${order.orderId}-${order.printAuthToken}-${order.createdAt}`)}
                             </span>
                           </div>
                         </div>
@@ -576,7 +677,7 @@ export function PrintCenterDashboard({ role = 'admin' }: { role?: string }) {
                         <span className="text-slate-400">{order.partName}</span>
                       </div>
                       <span className="font-mono text-[10px] text-slate-400">
-                        {sha256Mock(`${order.orderId}-${order.printAuthToken}-${order.createdAt}`)}
+                        {sha256(`${order.orderId}-${order.printAuthToken}-${order.createdAt}`)}
                       </span>
                     </div>
                   ))}
@@ -643,7 +744,7 @@ export function PrintCenterDashboard({ role = 'admin' }: { role?: string }) {
               <p className="text-[9px] text-slate-500 font-mono uppercase mb-1">Order Hash (SHA-256 Auditable)</p>
               <p className="text-[10px] text-emerald-400 font-mono">
                 {formData.partName
-                  ? sha256Mock(`${formData.partName}-${formData.quantity}-${Date.now()}`)
+                  ? sha256(`${formData.partName}-${formData.quantity}-${Date.now()}`)
                   : 'Enter a part name to generate order hash...'}
               </p>
             </div>
@@ -711,6 +812,116 @@ export function PrintCenterDashboard({ role = 'admin' }: { role?: string }) {
               </Card>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* ───── GOVERNANCE ───── */}
+      {activeTab === 'governance' && (
+        <div className="space-y-4">
+          <Card className="bg-gradient-to-r from-red-50 to-amber-50 border-red-200">
+            <CardContent className="p-4 flex items-center gap-3">
+              <Shield className="w-5 h-5 text-red-600 flex-shrink-0" />
+              <div>
+                <p className="text-sm font-semibold text-red-800">Governance & Certification Health</p>
+                <p className="text-xs text-red-600">Track certification expiries, compliance gaps, and audit chain integrity.</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Cert Expiry Alert */}
+            <Card className="border-red-200 shadow-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-red-500" />
+                  Certification Alerts
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {expiredCerts.length === 0 ? (
+                  <p className="text-xs text-slate-500">All certifications are active</p>
+                ) : (
+                  expiredCerts.map(cert => (
+                    <div key={cert.id} className={`p-2 rounded-lg border text-xs ${
+                      cert.status === 'expired' ? 'border-red-200 bg-red-50' : 'border-amber-200 bg-amber-50'
+                    }`}>
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-slate-700">{cert.name}</span>
+                        <Badge className={`text-[9px] ${
+                          cert.status === 'expired' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
+                        }`}>
+                          {cert.status.replace('_', ' ')}
+                        </Badge>
+                      </div>
+                      <p className="text-slate-500 mt-0.5">{cert.issuer} · {cert.holder}</p>
+                      <p className="text-slate-400 mt-0.5">Expires: {cert.expiryDate} · Scope: {cert.scope}</p>
+                    </div>
+                  ))
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Compliance Score */}
+            <Card className="border-0 shadow-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                  <Shield className="w-4 h-4 text-blue-500" />
+                  Compliance Overview
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {[
+                  { label: 'Active Certs', value: certifications.filter(c => c.status === 'active').length, total: certifications.length, color: '#10b981' },
+                  { label: 'Facilities Certified', value: printCenters.filter(c => c.status === 'online').length, total: printCenters.length, color: '#0ea5e9' },
+                  { label: 'Audit Chain Integrity', value: ordersForMyFacility.filter(o => o.hashChain && o.hashChain.length > 0).length, total: ordersForMyFacility.filter(o => o.status === 'archived' || o.status === 'completed').length, color: '#8b5cf6' },
+                  { label: 'Approval Bottlenecks', value: pendingApproval.length + qcOrders.length, total: ordersForMyFacility.length, color: '#f59e0b' },
+                ].map(metric => (
+                  <div key={metric.label}>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="text-slate-600">{metric.label}</span>
+                      <span className="font-semibold text-slate-700">{metric.value}/{metric.total}</span>
+                    </div>
+                    <Progress value={metric.total > 0 ? (metric.value / metric.total) * 100 : 0} className="h-1.5 bg-slate-100" style={{ ['--progress-color' as string]: metric.color }} />
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Hash Chain Audit */}
+          <Card className="border-0 shadow-sm">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                <Hash className="w-4 h-4 text-violet-500" />
+                Immutable Hash Chain — Recent Orders
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {ordersForMyFacility.filter(o => o.hashChain && o.hashChain.length > 0).slice(0, 5).map(order => (
+                <div key={order.id} className="p-2 rounded border border-slate-100 mb-2 last:mb-0">
+                  <div className="flex items-center justify-between text-xs mb-1">
+                    <span className="font-semibold text-slate-700">{order.orderId} — {order.partName}</span>
+                    <Badge className="text-[9px] bg-violet-100 text-violet-700">{order.status}</Badge>
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {order.hashChain?.map((link, i) => (
+                      <div key={i} className="flex items-center gap-1">
+                        <span className="text-[9px] font-mono bg-slate-900 text-emerald-400 px-1.5 py-0.5 rounded">
+                          {link.step}: {link.hash.slice(0, 12)}...
+                        </span>
+                        {i < (order.hashChain?.length || 0) - 1 && (
+                          <Lock className="w-3 h-3 text-slate-400" />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+              {ordersForMyFacility.filter(o => o.hashChain && o.hashChain.length > 0).length === 0 && (
+                <p className="text-xs text-slate-400">No hash chains recorded yet. Process orders through the pipeline to build audit trails.</p>
+              )}
+            </CardContent>
+          </Card>
         </div>
       )}
     </div>
