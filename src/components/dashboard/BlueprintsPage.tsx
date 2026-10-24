@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -35,7 +35,7 @@ import {
   Upload, X, CheckCircle, LayoutGrid, List, FileText, Info, AlertTriangle,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { blueprints as initialBlueprints } from '@/lib/static-data'
+import { useApiBlueprints } from '@/lib/api-hooks'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 interface UploadedFile {
@@ -325,11 +325,29 @@ const statusLabels: Record<string, string> = {
 
 // ── Main Page ──────────────────────────────────────────────────────────────
 export function BlueprintsPage({ role = 'admin' }: { role?: string }) {
-  const [blueprints, setBlueprints] = useState<Blueprint[]>(initialBlueprints as Blueprint[])
+  const { blueprints: apiBlueprints } = useApiBlueprints()
+  const [blueprints, setBlueprints] = useState<Blueprint[]>([])
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [catFilter, setCatFilter] = useState('all')
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table')
+
+  useEffect(() => {
+    if (apiBlueprints.length > 0) {
+      setBlueprints(apiBlueprints.map((b: any) => ({
+        id: b.id,
+        blueprintId: b.blueprintId,
+        name: b.name,
+        category: b.category,
+        material: b.material,
+        oem: b.oem,
+        certification: b.certification,
+        status: b.status,
+        printCount: b.printCount,
+        description: b.description,
+      })) as Blueprint[])
+    }
+  }, [apiBlueprints])
 
   // Role-specific access rules
   const canAddEdit = ['admin', 'manager', 'oem_partner', 'lab'].includes(role)

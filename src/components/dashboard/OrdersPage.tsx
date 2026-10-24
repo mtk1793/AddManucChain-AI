@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -56,7 +56,8 @@ import {
 
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { orders as initialOrders, blueprints, printCenters, users, Order, getOrderFinancials } from '@/lib/static-data'
+import { useApiOrders } from '@/lib/api-hooks'
+import { blueprints, printCenters, users, Order, getOrderFinancials } from '@/lib/static-data'
 
 const statusColors: Record<string, string> = {
   pending: 'bg-slate-100 text-slate-600',
@@ -64,14 +65,24 @@ const statusColors: Record<string, string> = {
   quality_check: 'bg-[#F59E0B]/10 text-[#F59E0B]',
   shipped: 'bg-[#14B8A6]/10 text-[#14B8A6]',
   delivered: 'bg-green-100 text-green-600',
+  submitted: 'bg-blue-100 text-blue-600',
+  oem_review: 'bg-purple-100 text-purple-600',
+  oem_approved: 'bg-indigo-100 text-indigo-600',
+  certification_review: 'bg-amber-100 text-amber-600',
+  certified: 'bg-emerald-100 text-emerald-600',
 }
 
 const statusLabels: Record<string, string> = {
+  submitted: 'Submitted',
   pending: 'Pending',
   printing: 'Printing',
   quality_check: 'Quality Check',
   shipped: 'Shipped',
   delivered: 'Delivered',
+  oem_review: 'OEM Review',
+  oem_approved: 'OEM Approved',
+  certification_review: 'Cert Review',
+  certified: 'Certified',
 }
 
 const priorityColors: Record<string, string> = {
@@ -373,7 +384,9 @@ const ROLE_CONTEXT = {
 }
 
 export function OrdersPage({ role = 'admin', onNavigate }: { role?: string; onNavigate?: (tab: string) => void }) {
-  const [orders, setOrders] = useState<Order[]>(initialOrders)
+  const { orders: apiOrders, isLoading: ordersLoading } = useApiOrders()
+  const [orders, setOrders] = useState<Order[]>([])
+  const [ordersInitialized, setOrdersInitialized] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [priorityFilter, setPriorityFilter] = useState('all')
@@ -418,6 +431,41 @@ export function OrdersPage({ role = 'admin', onNavigate }: { role?: string; onNa
     samplesCount: 3,
     notes: '',
   })
+
+  // Sync API orders into local state
+  useEffect(() => {
+    if (apiOrders.length > 0 && !ordersLoading) {
+      const mapped = apiOrders.map((o: any) => ({
+        id: o.id,
+        orderId: o.orderId,
+        partName: o.partName,
+        status: o.status,
+        priority: o.priority,
+        quantity: o.quantity,
+        eta: o.eta || o.createdAt,
+        requesterId: o.requesterId,
+        blueprintId: o.blueprintId,
+        centerId: o.centerId,
+        notes: o.notes,
+        createdAt: o.createdAt,
+        oemApproval: {
+          approved: ['oem_approved','certification_review','certified','printing','shipped','delivered'].includes(o.status),
+          approvedBy: o.requester?.name ?? 'OEM Partner',
+          approvedAt: o.updatedAt ?? null,
+          notes: null,
+        },
+        certApproval: {
+          approved: ['certified','printing','shipped','delivered'].includes(o.status),
+          approvedBy: 'Cert Authority',
+          approvedAt: o.updatedAt ?? null,
+          notes: null,
+        },
+        printAuthToken: ['printing','delivered','shipped'].includes(o.status) ? `drm-${o.orderId}-auto` : null,
+      }))
+      setOrders(mapped as Order[])
+      setOrdersInitialized(true)
+    }
+  }, [apiOrders, ordersLoading])
 
   // Scope data to what this role should see
   const ctx = ROLE_CONTEXT[role as keyof typeof ROLE_CONTEXT] ?? ROLE_CONTEXT.admin

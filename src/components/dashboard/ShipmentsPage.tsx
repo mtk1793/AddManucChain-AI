@@ -20,7 +20,8 @@ import {
   Zap, Navigation, Building2, Home, FileText, Eye, Filter, Plus,
   ChevronDown, ChevronUp, ArrowUpRight, Boxes, DollarSign, BarChart3, AlertTriangle
 } from 'lucide-react'
-import { shipments, orders } from '@/lib/static-data'
+import { useApiShipments } from '@/lib/api-hooks'
+import { orders } from '@/lib/static-data'
 
 const statusColors: Record<string, string> = {
   preparing: 'bg-slate-100 text-slate-600',
@@ -157,6 +158,7 @@ function ShipmentTrackingCard({ shipment }: { shipment: typeof shipments[0] }) {
 }
 
 export function ShipmentsPage({ role = 'admin' }: { role?: string }) {
+  const { shipments } = useApiShipments()
   const [activeTab, setActiveTab] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [showScheduleForm, setShowScheduleForm] = useState(false)

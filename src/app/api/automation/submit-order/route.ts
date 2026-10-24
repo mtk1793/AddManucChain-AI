@@ -1,5 +1,7 @@
 import { NextRequest } from 'next/server'
+import { runOrderPipeline } from '@/lib/order-pipeline'
 import { getOrderAutomationAgent, DEFAULT_AUTOMATION_CONFIG } from '@/lib/order-automation-agent'
+import { db } from '@/lib/db'
 
 const agent = getOrderAutomationAgent()
 
@@ -9,24 +11,60 @@ export async function GET(request: NextRequest) {
 
   try {
     if (action === 'status' && orderId) {
-      const status = await agent.getOrderStatus(orderId)
+      const order = await db.order.findFirst({
+        where: { orderId },
+        include: {
+          auditLogs: { orderBy: { createdAt: 'asc' } },
+          shipment: true,
+        },
+      })
+      if (!order) {
+        const legacy = agent.getOrderStatus(orderId)
+        return Response.json({ success: true, status: legacy })
+      }
       return Response.json({
         success: true,
-        status,
+        status: {
+          orderId: order.orderId,
+          dbStatus: order.status,
+          pipeline: order.auditLogs.map((a) => ({
+            stage: a.action,
+            details: a.details,
+            at: a.createdAt,
+          })),
+          shipment: order.shipment,
+          isProcessing: false,
+        },
       })
     }
 
     if (action === 'stats') {
-      const stats = agent.getStats()
+      const [orderCount, delivered, certCount, shipCount] = await Promise.all([
+        db.order.count(),
+        db.order.count({ where: { status: 'delivered' } }),
+        db.certificationRequest.count(),
+        db.shipment.count(),
+      ])
       return Response.json({
         success: true,
-        stats,
+        stats: {
+          ...agent.getStats(),
+          totalOrders: orderCount,
+          deliveredParts: delivered,
+          certificationRequests: certCount,
+          shipments: shipCount,
+        },
         config: DEFAULT_AUTOMATION_CONFIG,
       })
     }
 
     if (action === 'pending_orders') {
-      const pending = agent.getOrdersNeedingAttention()
+      const pending = await db.order.findMany({
+        where: { status: { in: ['submitted', 'oem_review', 'certification_review', 'printing'] } },
+        orderBy: { createdAt: 'desc' },
+        take: 20,
+        include: { requester: true, center: true },
+      })
       return Response.json({
         success: true,
         pendingOrders: pending,
@@ -54,24 +92,40 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { action, order, config } = body
 
-    // Submit order for automated processing
+    // Submit order — runs the 4-stage pipeline (end_user -> oem -> cert -> print)
     if (action === 'submit_order' && order) {
-      const result = await agent.submitOrder({
-        orderId: order.orderId || `ORD-${Date.now()}`,
-        customerId: order.customerId || 'guest',
-        items: order.items || [],
-        priority: order.priority || 'normal',
+      const firstItem = Array.isArray(order.items) && order.items.length > 0
+        ? order.items[0]
+        : null
+      const metadata = order.metadata ?? {}
+      const customerName =
+        metadata.customerName ??
+        (typeof order.customerId === 'string' ? order.customerId : undefined)
+      const customerEmail = metadata.customerEmail
+
+      const result = await runOrderPipeline({
+        partName: firstItem?.name ?? order.partName ?? 'Unnamed Part',
+        quantity:
+          firstItem?.quantity ??
+          order.quantity ??
+          (Array.isArray(order.items) ? order.items.length : 1),
+        priority: order.priority ?? 'normal',
         notes: order.notes,
+        customerName,
+        customerEmail,
+        items: order.items,
+        blueprintId: order.blueprintId ?? null,
+        centerId: order.centerId ?? null,
       })
 
       return Response.json({
-        success: true,
+        success: result.success,
         result,
-        message: 'Order submitted to automation engine',
+        message: result.message,
       })
     }
 
-    // Update automation configuration
+    // Update automation configuration (kept from original agent)
     if (action === 'update_config' && config) {
       agent.updateConfig(config)
       return Response.json({
@@ -81,7 +135,7 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Reset automation system
+    // Reset automation system (kept from original agent)
     if (action === 'reset') {
       agent.reset()
       return Response.json({

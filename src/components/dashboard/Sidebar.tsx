@@ -45,7 +45,8 @@ import {
   Smartphone,
   Bot,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
+import { useRouter, usePathname } from 'next/navigation'
 
 // ── Demo personas — one per segment ──────────────────────────────────────────
 const demoPersonas = [
@@ -384,6 +385,19 @@ interface SidebarProps {
 
 export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileClose, collapsed = false, onCollapsedChange, activeRole, onRoleChange }: SidebarProps) {
   const setCollapsed = (val: boolean) => onCollapsedChange?.(val)
+  const router = useRouter()
+  const pathname = usePathname()
+  const resolvedActiveTab = useMemo(() => {
+    if (activeTab) return activeTab
+    return pathname.replace(/^\/dashboard\/?/, '') || 'overview'
+  }, [activeTab, pathname])
+
+  const handleNavigate = (tabId: string) => {
+    router.push('/dashboard/' + tabId)
+    onTabChange(tabId)
+    onMobileClose?.()
+  }
+
   // Use activeRole as default to prevent hydration mismatch
   const [internalRole, setInternalRole] = useState(activeRole ?? 'admin')
   const demoRole = activeRole ?? internalRole
@@ -528,11 +542,11 @@ export function Sidebar({ activeTab, onTabChange, mobileOpen, onMobileClose, col
                   {visibleItems.map(item => (
                     <button
                       key={item.id}
-                      onClick={() => { onTabChange(item.id); onMobileClose?.() }}
+                      onClick={() => handleNavigate(item.id)}
                       title={collapsed ? item.label : undefined}
                       className={cn(
                         'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all',
-                        activeTab === item.id
+                        resolvedActiveTab === item.id
                           ? 'bg-[#0EA5E9]/20 text-[#0EA5E9]'
                           : 'text-slate-400 hover:text-white hover:bg-slate-800',
                         collapsed && 'justify-center px-0'
