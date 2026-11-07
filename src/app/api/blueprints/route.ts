@@ -45,7 +45,8 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Error fetching blueprints:', error)
     return NextResponse.json(getDemoBlueprints(request.nextUrl.searchParams))
-  }}
+  }
+}
 
 // POST create new blueprint
 export async function POST(request: NextRequest) {
@@ -79,4 +80,5 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error creating blueprint:', error)
     return NextResponse.json({ error: 'Failed to create blueprint' }, { status: 500 })
-  }}
+  }
+}
