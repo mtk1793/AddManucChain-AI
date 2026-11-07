@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useMemo } from 'react'
 import useSWR from 'swr'
 import { renderDashboardPage } from '@/lib/tab-routes'
+import { useDashboardRole } from '@/components/dashboard/DashboardRoleContext'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -150,6 +151,7 @@ interface SectionContentProps {
 
 export function SectionContent({ section }: SectionContentProps) {
   const router = useRouter()
+  const role = useDashboardRole()
 
   const result = useMemo(() => {
     if (!section || section.length === 0) return { type: 'page' as const, tabId: 'overview' }
@@ -179,7 +181,7 @@ export function SectionContent({ section }: SectionContentProps) {
 
   return renderDashboardPage(
     result.tabId,
-    'admin',
+    role,
     (tab: string) => router.push('/dashboard/' + tab),
   )
 }
