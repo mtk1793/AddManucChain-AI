@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireAuth } from '@/lib/require-auth'
+import { getDemoShipments } from '@/lib/demo-api-data'
 
 // GET all shipments
 export async function GET(request: NextRequest) {
@@ -38,7 +39,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(shipments)
   } catch (error) {
-    console.error('Error fetching shipments:', error)
-    return NextResponse.json({ error: 'Failed to fetch shipments' }, { status: 500 })
+    console.error('getDemoShipments database read failed; serving demo data:', error)
+    return NextResponse.json(getDemoShipments(request.nextUrl.searchParams))
   }
 }

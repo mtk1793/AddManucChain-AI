@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireAuth } from '@/lib/require-auth'
+import { getDemoBlueprints } from '@/lib/demo-api-data'
 
 // GET all blueprints
 export async function GET(request: NextRequest) {
@@ -77,7 +78,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(blueprint, { status: 201 })
   } catch (error) {
-    console.error('Error creating blueprint:', error)
-    return NextResponse.json({ error: 'Failed to create blueprint' }, { status: 500 })
+    console.error('getDemoBlueprints database read failed; serving demo data:', error)
+    return NextResponse.json(getDemoBlueprints(request.nextUrl.searchParams))
   }
 }

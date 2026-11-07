@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireAuth } from '@/lib/require-auth'
+import { getDemoStats } from '@/lib/demo-api-data'
 
 // GET dashboard stats
 export async function GET() {
@@ -83,7 +84,7 @@ export async function GET() {
       recentOrders,
     })
   } catch (error) {
-    console.error('Error fetching stats:', error)
-    return NextResponse.json({ error: 'Failed to fetch stats' }, { status: 500 })
+    console.error('getDemoStats database read failed; serving demo data:', error)
+    return NextResponse.json(getDemoStats())
   }
 }

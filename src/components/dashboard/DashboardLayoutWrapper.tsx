@@ -14,6 +14,7 @@ import {
 } from '@/components/dashboard'
 import { CommandPalette } from '@/components/dashboard/CommandPalette'
 import { getDashboardPageTitle } from '@/lib/tab-routes'
+import { DashboardRoleContext } from '@/components/dashboard/DashboardRoleContext'
 
 export function DashboardLayoutWrapper({ children }: { children: React.ReactNode }) {
   const router = useRouter()
@@ -83,7 +84,10 @@ export function DashboardLayoutWrapper({ children }: { children: React.ReactNode
         collapsed={sidebarCollapsed}
         onCollapsedChange={setSidebarCollapsed}
         activeRole={currentRole}
-        onRoleChange={setCurrentRole}
+        onRoleChange={(role) => {
+          setCurrentRole(role)
+          router.push('/dashboard/overview')
+        }}
       />
 
       <div className={`ml-0 transition-all duration-300 ${sidebarCollapsed ? 'md:ml-20' : 'md:ml-64'}`}>
@@ -96,7 +100,9 @@ export function DashboardLayoutWrapper({ children }: { children: React.ReactNode
           mobileOpen={mobileOpen}
           setMobileOpen={setMobileOpen}
         />
-        <main className="min-h-[calc(100vh-64px)]">{children}</main>
+        <main className="min-h-[calc(100vh-64px)]">
+          <DashboardRoleContext.Provider value={currentRole as any}>{children}</DashboardRoleContext.Provider>
+        </main>
       </div>
 
       <AIAssistant role={currentRole} onNavigate={handleNavigate} />
