@@ -27,6 +27,11 @@ export function DashboardLayoutWrapper({ children }: { children: React.ReactNode
   const [mobileOpen, setMobileOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [currentRole, setCurrentRole] = useState('admin')
+
+  useEffect(() => {
+    const savedRole = window.localStorage.getItem('addmanuchain-demo-role')
+    if (savedRole) setCurrentRole(savedRole)
+  }, [])
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
   const { showOnboarding, isLoading, completeOnboarding } = useOnboarding()
   const { tutorialSection, showTutorial, hideTutorial, isVisible: tutorialVisible } = useSectionTutorial(activeTab)
@@ -86,6 +91,7 @@ export function DashboardLayoutWrapper({ children }: { children: React.ReactNode
         activeRole={currentRole}
         onRoleChange={(role) => {
           setCurrentRole(role)
+          window.localStorage.setItem('addmanuchain-demo-role', role)
           router.push('/dashboard/overview')
         }}
       />
