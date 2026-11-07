@@ -8,7 +8,7 @@ import { Activity, Database, Cloud, Server, Zap, RefreshCw } from 'lucide-react'
 // Endpoints to probe — each represents a subsystem of the platform.
 const HEALTH_CHECKS = [
   { id: 'api', label: 'API Gateway', endpoint: '/api/stats', icon: Server },
-  { id: 'db', label: 'Database', endpoint: '/api/orders?limit=1', icon: Database },
+  { id: 'db', label: 'Database', endpoint: '/api/health/database', icon: Database },
   { id: 'orders', label: 'Orders Service', endpoint: '/api/orders', icon: Zap },
   { id: 'blueprints', label: 'Blueprints', endpoint: '/api/blueprints', icon: Cloud },
   { id: 'centers', label: 'Print Centers', endpoint: '/api/centers', icon: Activity },
