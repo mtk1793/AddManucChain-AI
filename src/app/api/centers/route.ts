@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(transformedCenters)
   } catch (error) {
     console.error('Error fetching centers:', error)
-    return NextResponse.json({ error: 'Failed to fetch centers' }, { status: 500 })
+    return NextResponse.json(getDemoCenters(request.nextUrl.searchParams))
   }
 }
 
@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
       specialties: JSON.parse(center.specialties),
     }, { status: 201 })
   } catch (error) {
-    console.error('getDemoCenters database read failed; serving demo data:', error)
-    return NextResponse.json(getDemoCenters())
+    console.error('Error creating center:', error)
+    return NextResponse.json({ error: 'Failed to create center' }, { status: 500 })
   }
 }

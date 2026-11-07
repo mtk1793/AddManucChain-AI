@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(blueprints)
   } catch (error) {
     console.error('Error fetching blueprints:', error)
-    return NextResponse.json({ error: 'Failed to fetch blueprints' }, { status: 500 })
+    return NextResponse.json(getDemoBlueprints(request.nextUrl.searchParams))
   }
 }
 
@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(blueprint, { status: 201 })
   } catch (error) {
-    console.error('getDemoBlueprints database read failed; serving demo data:', error)
-    return NextResponse.json(getDemoBlueprints(request.nextUrl.searchParams))
+    console.error('Error creating blueprint:', error)
+    return NextResponse.json({ error: 'Failed to create blueprint' }, { status: 500 })
   }
 }
