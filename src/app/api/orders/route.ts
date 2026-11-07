@@ -39,7 +39,8 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Error fetching orders:', error)
     return NextResponse.json(getDemoOrders(request.nextUrl.searchParams))
-  }}
+  }
+}
 
 // POST create new order
 export async function POST(request: NextRequest) {
@@ -107,4 +108,5 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error creating order:', error)
     return NextResponse.json({ error: 'Failed to create order' }, { status: 500 })
-  }}
+  }
+}
