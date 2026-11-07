@@ -38,9 +38,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(orders)
   } catch (error) {
     console.error('Error fetching orders:', error)
-    return NextResponse.json({ error: 'Failed to fetch orders' }, { status: 500 })
-  }
-}
+    return NextResponse.json(getDemoOrders(request.nextUrl.searchParams))
+  }}
 
 // POST create new order
 export async function POST(request: NextRequest) {
@@ -106,7 +105,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(order, { status: 201 })
   } catch (error) {
-    console.error('getDemoOrders database read failed; serving demo data:', error)
-    return NextResponse.json(getDemoOrders(request.nextUrl.searchParams))
-  }
-}
+    console.error('Error creating order:', error)
+    return NextResponse.json({ error: 'Failed to create order' }, { status: 500 })
+  }}
