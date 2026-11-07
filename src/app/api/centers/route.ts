@@ -29,7 +29,8 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Error fetching centers:', error)
     return NextResponse.json(getDemoCenters(request.nextUrl.searchParams))
-  }}
+  }
+}
 
 // POST create new print center
 export async function POST(request: NextRequest) {
@@ -82,4 +83,5 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error creating center:', error)
     return NextResponse.json({ error: 'Failed to create center' }, { status: 500 })
-  }}
+  }
+}
